@@ -28,6 +28,21 @@
   #hud,.side-panel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;}
   .pb{background:#2a2a2a;border:1px solid #444;border-radius:6px;padding:3px 10px;color:#aaa;}
   .pb span{font-weight:600;color:#eee;}
+
+  /* ─────────────────────────────────────────
+     PLEIN ÉCRAN : le canvas peut grandir au-delà
+     de sa taille native pour remplir l'écran
+  ───────────────────────────────────────── */
+  body.is-fullscreen{background:#000;}
+  body.is-fullscreen #game-shell{height:100dvh;justify-content:center;}
+  body.is-fullscreen canvas{max-width:none;max-height:none;border:none;border-radius:0;}
+  body.is-fullscreen>.signature-frates{display:none;}
+  @media (orientation:landscape){
+    body.is-fullscreen #game-shell{flex-direction:row;justify-content:space-between;align-items:center;gap:10px;width:100%;}
+    body.is-fullscreen .side-panel{flex-direction:column;flex-wrap:nowrap;align-items:stretch;min-width:90px;max-width:180px;}
+    body.is-fullscreen .side-panel button{width:100%;}
+    body.is-fullscreen #msg{text-align:center;min-width:0;}
+  }
   #msg{flex:1;text-align:right;color:#aaa;min-width:160px;}
   button{background:#333;border:1px solid #555;color:#eee;border-radius:6px;padding:4px 14px;cursor:pointer;font-size:13px;}
   button:hover{background:#444;}
@@ -73,6 +88,16 @@
     .side-panel button{width:100%;}
     #msg{text-align:center;min-width:0;font-size:11px;}
     body>.signature-frates{display:none;}
+    /* Panneau règles compact pour tenir dans la hauteur réduite */
+    #rules-arb-wrap{display:none;}
+    #screen-rules{padding:14px 18px;width:92%;}
+    #rules-body h2{font-size:11px;margin-bottom:8px;}
+    .rcmd{margin-bottom:5px;gap:8px;}
+    .rcmd .rkey{font-size:9px;padding:3px 6px;min-width:64px;border-bottom-width:2px;}
+    .rcmd .rdesc{font-size:9px;line-height:1.45;}
+    .rcmd-group-title{font-size:8px;margin:8px 0 4px;}
+    .rules-note{font-size:11px;line-height:1.5;margin-top:6px;padding-top:8px;}
+    .rules-close-hint{font-size:9px;margin-top:6px;}
   }
 
   /* ── Police rétro ── */
@@ -213,12 +238,12 @@
   #screen-rules{
     position:absolute;top:50%;left:50%;
     transform:translate(-50%,-50%);
-    width:88%;max-width:560px;
+    width:88%;max-width:560px;max-height:90%;overflow:hidden;
     background:rgba(8,12,22,0.96);
     border:2px solid #ffe87a;border-radius:10px;
     box-shadow:0 0 40px rgba(200,160,32,.4),0 0 0 9999px rgba(0,0,0,0.55);
     display:none;flex-direction:row;align-items:flex-end;
-    z-index:40;overflow:visible;
+    z-index:40;
     padding:28px 28px 28px 0;
   }
   /* Personnage à cheval à gauche */
@@ -230,9 +255,10 @@
     width:90px;image-rendering:pixelated;
     filter:drop-shadow(0 4px 12px rgba(0,0,0,0.8));
   }
-  /* Contenu */
+  /* Contenu : s'étire sur toute la hauteur réelle du panneau et scrolle si besoin */
   #rules-body{
     flex:1;padding-left:12px;
+    align-self:stretch;overflow-y:auto;max-height:100%;
   }
   #rules-body h2{
     font-family:'Press Start 2P',monospace;font-size:14px;
@@ -254,6 +280,11 @@
     font-family:'Press Start 2P',monospace;font-size:11px;
     color:#ddd;line-height:1.8;
   }
+  .rcmd-group-title{
+    font-family:'Press Start 2P',monospace;font-size:10px;
+    color:#888;letter-spacing:1px;margin:14px 0 8px;
+  }
+  .rcmd-group-title:first-of-type{margin-top:0;}
   .rules-note{
     margin-top:14px;
     font-family:'Press Start 2P',monospace;font-size:16px;
@@ -317,6 +348,7 @@ margin-top:12px;
   </div>
   <div id="rules-body">
     <h2>COMMANDES</h2>
+    <div class="rcmd-group-title">🖱️ SOURIS / CLAVIER</div>
     <div class="rcmd">
       <span class="rkey">SOURIS</span>
       <span class="rdesc">Orienter la visée</span>
@@ -328,6 +360,15 @@ margin-top:12px;
     <div class="rcmd">
       <span class="rkey">ESPACE</span>
       <span class="rdesc">Maintenir pour charger, relâcher pour lancer</span>
+    </div>
+    <div class="rcmd-group-title">📱 ÉCRAN TACTILE</div>
+    <div class="rcmd">
+      <span class="rkey">GLISSER</span>
+      <span class="rdesc">Doigt posé sur le terrain : viser et charger. Relâcher pour lancer</span>
+    </div>
+    <div class="rcmd">
+      <span class="rkey">JAUGE ⇕</span>
+      <span class="rdesc">Glisser le doigt sur la jauge à gauche du terrain pour régler la hauteur de main</span>
     </div>
     <div class="rules-note">
       Sinon, c'est une partie de pétanque classique<br>
@@ -1025,6 +1066,60 @@ Touz & Roll,0.8,0.8,0.8`;
       try{screen.orientation.unlock();}catch(e){}
     }
   }
+
+  // ═══════════════════════════════════════════════════════
+  //  AGRANDISSEMENT RÉEL DU CANVAS EN PLEIN ÉCRAN
+  //  (le canvas reste limité à 632×466 hors plein écran, comme avant ;
+  //   en plein écran, il grandit pour remplir l'espace dispo, sans
+  //   déformation, et avec un rendu net grâce au devicePixelRatio)
+  // ═══════════════════════════════════════════════════════
+  function fitCanvasFullscreen(){
+    const shell=document.getElementById('game-shell');
+    const sideLeft=document.getElementById('side-left').getBoundingClientRect();
+    const sideRight=document.getElementById('side-right').getBoundingClientRect();
+    const isRow=getComputedStyle(shell).flexDirection.indexOf('row')===0;
+    const margin=16;
+    let availW,availH;
+    if(isRow){
+      availW=window.innerWidth-sideLeft.width-sideRight.width-margin;
+      availH=window.innerHeight-margin;
+    }else{
+      availW=window.innerWidth-margin;
+      availH=window.innerHeight-sideLeft.height-sideRight.height-margin;
+    }
+    availW=Math.max(120,availW);availH=Math.max(120,availH);
+    const ratio=SW/SH;
+    let w=availW,h=w/ratio;
+    if(h>availH){h=availH;w=h*ratio;}
+    canvas.style.width=w+'px';
+    canvas.style.height=h+'px';
+    const dpr=window.devicePixelRatio||1;
+    const scaleFactor=w/SW;
+    const bw=Math.round(SW*scaleFactor*dpr),bh=Math.round(SH*scaleFactor*dpr);
+    canvas.width=bw;canvas.height=bh;
+    ctx.setTransform(scaleFactor*dpr,0,0,scaleFactor*dpr,0,0);
+  }
+  function resetCanvasDefault(){
+    canvas.style.width='';canvas.style.height='';
+    canvas.width=SW;canvas.height=SH;
+    ctx.setTransform(1,0,0,1,0,0);
+  }
+  window.fitCanvasFullscreen=fitCanvasFullscreen;
+  window.resetCanvasDefault=resetCanvasDefault;
+  document.addEventListener('fullscreenchange',()=>{
+    const isFs=!!document.fullscreenElement;
+    document.body.classList.toggle('is-fullscreen',isFs);
+    if(isFs){fitCanvasFullscreen();setTimeout(fitCanvasFullscreen,250);}
+    else resetCanvasDefault();
+  });
+  document.addEventListener('webkitfullscreenchange',()=>{
+    const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
+    document.body.classList.toggle('is-fullscreen',!!fsEl);
+    if(fsEl){fitCanvasFullscreen();setTimeout(fitCanvasFullscreen,250);}else resetCanvasDefault();
+  });
+  window.addEventListener('resize',()=>{
+    if(document.fullscreenElement||document.webkitFullscreenElement)fitCanvasFullscreen();
+  });
 
   window.startGame=function(){
     tryFullscreenLandscape(false);
