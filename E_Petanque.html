@@ -379,6 +379,42 @@ margin-top:12px;
   </div>
 </div>
 
+<!-- ══ OVERLAY DÉCONNEXION RÉSEAU ══ -->
+<div id="screen-disco" style="display:none;position:absolute;inset:0;z-index:50;background:rgba(8,12,20,0.95);flex-direction:column;align-items:center;justify-content:center;gap:18px;border-radius:6px;font-family:'Press Start 2P',monospace;text-align:center;padding:20px;">
+  <div style="font-size:32px;">⚠️</div>
+  <div style="font-size:14px;color:#ffe87a;letter-spacing:2px;text-shadow:2px 2px #000;">CONNEXION PERDUE</div>
+  <div style="font-size:9px;color:#aaa;line-height:2;">L'adversaire s'est déconnecté.</div>
+  <button onclick="discoReturnMenu()" style="font-family:'Press Start 2P',monospace;font-size:10px;padding:12px 20px;background:#c8a020;color:#1a0e00;border:3px solid #ffe87a;cursor:pointer;letter-spacing:1px;box-shadow:4px 4px 0 #5a3a00;margin-top:8px;">↩ Retour au menu</button>
+</div>
+
+<!-- ══ OVERLAY SAISIE PSEUDO ══ -->
+<div id="screen-pseudo" style="display:none;position:absolute;inset:0;z-index:60;background:rgba(8,12,20,0.97);flex-direction:column;align-items:center;justify-content:center;gap:16px;border-radius:6px;font-family:'Press Start 2P',monospace;text-align:center;padding:20px;">
+  <div style="font-size:13px;color:#ffe87a;letter-spacing:2px;text-shadow:2px 2px #000;">TON PSEUDO</div>
+  <input id="pseudo-input" type="text" maxlength="10" placeholder="AAA" autocomplete="off"
+    style="width:240px;background:#111;border:2px solid #c8a020;color:#ffe87a;padding:12px;font-size:18px;font-family:'Press Start 2P',monospace;text-align:center;letter-spacing:3px;box-sizing:border-box;border-radius:4px;text-transform:uppercase;" />
+  <div style="font-size:8px;color:#666;font-family:'Press Start 2P',monospace;">10 caractères max</div>
+  <div id="pseudo-warning" style="display:none;font-size:8px;color:#e0a030;line-height:1.8;max-width:280px;">⚠ Tes victoires ne seront pas transférées vers un nouveau pseudo.</div>
+  <button onclick="validatePseudo()" style="font-family:'Press Start 2P',monospace;font-size:11px;padding:12px 24px;background:#c8a020;color:#1a0e00;border:3px solid #ffe87a;cursor:pointer;letter-spacing:1px;box-shadow:4px 4px 0 #5a3a00;">✓ Valider</button>
+  <button id="pseudo-cancel" onclick="closePseudoEdit()" style="display:none;font-size:9px;font-family:'Press Start 2P',monospace;padding:8px 16px;background:#1a1a30;border:1px solid #555;color:#aaa;cursor:pointer;">Annuler</button>
+</div>
+
+<!-- ══ OVERLAY CLASSEMENT ══ -->
+<div id="screen-classement" style="display:none;position:absolute;inset:0;z-index:60;background:rgba(8,12,20,0.97);flex-direction:column;align-items:center;justify-content:flex-start;gap:12px;border-radius:6px;font-family:'Press Start 2P',monospace;text-align:center;padding:18px 14px;overflow-y:auto;">
+  <div style="font-size:13px;color:#ffe87a;letter-spacing:2px;text-shadow:2px 2px #000;">🏆 CLASSEMENT</div>
+  <div id="classement-body" style="width:100%;max-width:340px;font-size:9px;color:#ddd;"></div>
+  <button onclick="closeClassement()" style="font-family:'Press Start 2P',monospace;font-size:10px;padding:10px 20px;background:#c8a020;color:#1a0e00;border:3px solid #ffe87a;cursor:pointer;letter-spacing:1px;box-shadow:4px 4px 0 #5a3a00;margin-top:6px;">↩ Retour</button>
+</div>
+
+<!-- ══ TOAST ENREGISTREMENT DE PARTIE ══ -->
+<div id="screen-save" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:70;background:rgba(8,12,20,0.95);border:2px solid #c8a020;border-radius:6px;font-family:'Press Start 2P',monospace;text-align:center;padding:12px 16px;max-width:90%;">
+  <div id="save-msg" style="font-size:9px;color:#ffe87a;line-height:1.8;">💾 Enregistrement…</div>
+  <div id="save-buttons" style="display:none;justify-content:center;gap:8px;margin-top:10px;">
+    <button onclick="retryRecordMatch()" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#c8a020;color:#1a0e00;border:2px solid #ffe87a;cursor:pointer;">↻ Réessayer</button>
+    <button onclick="abandonRecordMatch()" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#1a1a30;border:1px solid #555;color:#aaa;cursor:pointer;">Abandonner</button>
+  </div>
+</div>
+
+
 <!-- ══ ÉCRAN SPLASH ══ -->
 <div id="screen-splash">
   <img id="fond_splash_Img" alt="splash">
@@ -389,8 +425,31 @@ margin-top:12px;
 <!-- ══ ÉCRAN MENU ══ -->
 <div id="screen-select" style="display:none;">
   <h1>Coupe de la<br>Cité des Mobilités</h1>
-  <button class="sel-btn" id="btn-pvp" onclick="selectMode('pvp')">Joueur contre Joueur</button>
-  <button class="sel-btn" id="btn-pvc" onclick="selectMode('pvc')">Joueur contre la Machine</button>
+
+  <!-- Niveau 1 : Solo / Multijoueur -->
+  <div id="menu-niveau1" style="display:flex;flex-direction:column;gap:16px;align-items:center;">
+    <button class="sel-btn" id="btn-solo" onclick="selectMenuSolo()">🎮 Jeu Solo</button>
+    <button class="sel-btn" id="btn-multi" onclick="showSubMenuMulti()">👥 Jeu Multijoueur</button>
+  </div>
+
+  <!-- Niveau 2 : Local / Réseau (masqué par défaut) -->
+  <div id="menu-niveau2" style="display:none;flex-direction:column;gap:16px;align-items:center;">
+    <!-- Identité joueur (pseudo) -->
+    <div id="pseudo-row" style="display:flex;flex-direction:column;gap:6px;align-items:center;width:300px;">
+      <div style="font-size:8px;color:#888;font-family:'Press Start 2P',monospace;">▸ Ton pseudo (classement)</div>
+      <div style="display:flex;gap:8px;align-items:center;width:100%;justify-content:center;">
+        <span id="pseudo-display" style="font-size:13px;color:#ffe87a;font-family:'Press Start 2P',monospace;background:#111;padding:8px 14px;border:2px solid #c8a020;border-radius:4px;letter-spacing:2px;min-width:120px;text-align:center;">—</span>
+        <button onclick="openPseudoEdit()" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 10px;cursor:pointer;">✏️ Changer</button>
+      </div>
+    </div>
+    <button class="sel-btn" id="btn-pvp" onclick="selectMode('pvp')">👥 Joueur contre Joueur<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">en local</span></button>
+    <button class="sel-btn" id="btn-pvr" onclick="selectMode('pvr')">⚡ Joueur par réseau</button>
+    <button class="sel-btn" id="btn-classement" onclick="openClassement()">🏆 Classement</button>
+    <button onclick="showMainMenu()" style="font-size:9px;font-family:'Press Start 2P',monospace;padding:8px 16px;background:#1a1a30;border:1px solid #555;color:#aaa;cursor:pointer;">← Retour</button>
+  </div>
+
+  <!-- Bouton PvC caché (activé programmatiquement par Jeu Solo) -->
+  <button class="sel-btn" id="btn-pvc" onclick="selectMode('pvc')" style="display:none;"></button>
   <!-- Sélection noms d'équipes -->
   <div id="team-names" style="display:flex;flex-direction:column;gap:8px;width:300px;">
     <div style="font-size:18px;color:#888;text-align:center;font-family:'Press Start 2P',monospace;letter-spacing:1px;">▸ Équipes</div>
@@ -422,6 +481,34 @@ margin-top:12px;
     </div>
   </div>
   <button id="btn-start" onclick="startGame()">▶ LANCER LA PARTIE</button>
+
+  <!-- Panneau réseau (mode pvr) -->
+  <div id="net-panel" style="display:none;flex-direction:column;gap:10px;width:300px;align-items:center;">
+    <!-- Choix de l'équipe (chaque joueur choisit la sienne) -->
+    <div id="net-team-row" style="display:flex;flex-direction:column;gap:6px;width:100%;align-items:center;">
+      <div style="font-size:9px;color:#aaa;font-family:'Press Start 2P',monospace;">▸ Ton équipe</div>
+      <select id="select-team-net"
+        style="width:100%;background:#111;border:2px solid #c8a020;color:#ffe87a;padding:8px 10px;font-size:9px;font-family:'Press Start 2P',monospace;cursor:pointer;box-sizing:border-box;">
+      </select>
+    </div>
+    <div id="net-host-section" style="display:none;flex-direction:column;gap:6px;align-items:center;width:100%;">
+      <div style="font-size:9px;color:#aaa;font-family:'Press Start 2P',monospace;">Ton code de session :</div>
+      <div id="net-myid" style="font-size:13px;color:#ffe87a;font-family:'Press Start 2P',monospace;background:#111;padding:8px 14px;border:2px solid #c8a020;border-radius:4px;letter-spacing:2px;cursor:pointer;" onclick="copyNetId()" title="Cliquer pour copier">…</div>
+      <div style="font-size:8px;color:#666;font-family:'Press Start 2P',monospace;">Partage ce code à l'adversaire</div>
+      <div id="net-status" style="font-size:8px;color:#aaa;font-family:'Press Start 2P',monospace;min-height:16px;">En attente de connexion…</div>
+    </div>
+    <div id="net-join-section" style="display:none;flex-direction:column;gap:6px;align-items:center;width:100%;">
+      <div style="font-size:9px;color:#aaa;font-family:'Press Start 2P',monospace;">Code de l'hôte :</div>
+      <input id="net-remote-id" type="text" placeholder="CODE" maxlength="8"
+        style="width:100%;background:#111;border:2px solid #c8a020;color:#ffe87a;padding:8px;font-size:13px;font-family:'Press Start 2P',monospace;text-align:center;letter-spacing:2px;box-sizing:border-box;border-radius:4px;text-transform:uppercase;" />
+      <button onclick="netJoin()" style="width:100%;">Se connecter</button>
+      <div id="net-join-status" style="font-size:8px;color:#aaa;font-family:'Press Start 2P',monospace;min-height:16px;"></div>
+    </div>
+    <div style="display:flex;gap:8px;width:100%;">
+      <button onclick="netInitHost()" style="flex:1;font-size:9px;">🏠 Créer la partie</button>
+      <button onclick="netInitJoin()" style="flex:1;font-size:9px;">🔗 Rejoindre</button>
+    </div>
+  </div>
 </div>
 </div>
 
@@ -516,6 +603,7 @@ margin-top:12px;
   let cur,boules,scoreTotal;
   let gameMode='pvp';
   let teamNames={1:'Équipe 1',2:'Équipe 2'};
+  let netPseudos={1:'',2:''}; // pseudos des joueurs en réseau (pour le classement)
   function teamLabel(player){return teamNames[player];}
   let aiTirsManche=0; // Garde-fou : max 3 tirs par manche pour l'IA (au-delà elle pointe)
 
@@ -809,6 +897,10 @@ margin-top:12px;
     balls.push({x:ORIGIN.x,y:ORIGIN.y,z:0,vx,vy,vz,mass:1,player:cur,active:true,phase:'flying',bounces:0,hNorm});
     boules[cur]--;
     state='flying';updateMsg();
+    // Réseau : envoyer l'état au moment du lancer pour que l'adversaire voie la trajectoire
+    if(gameMode==='pvr'&&netConn&&netReady){
+      netConn.send(netSerialize());
+    }
   }
 
   // ── Règles ───────────────────────────────────────────────
@@ -857,7 +949,7 @@ margin-top:12px;
     const w=boules[1]===0?2:1,pts=boules[w];
     scoreTotal[w]+=pts;updateScore();lastWinner=w;
     state=scoreTotal[w]>=13?'match':'done';
-    if(state==='match') setMsg('🏆 '+teamLabel(w)+' GAGNE LE MATCH !');
+    if(state==='match'){setMsg('🏆 '+teamLabel(w)+' GAGNE LE MATCH !');onMatchEnded(w);}
     else setMsg('Cochonnet sorti → '+teamLabel(w)+' marque '+pts+' pts  —   Appuyer sur Espace pour la prochaine mène');
   }
   function nextTurn(){
@@ -885,7 +977,7 @@ margin-top:12px;
     if(player&&pts>0){
       scoreTotal[player]+=pts;updateScore();
       lastWinner=player;
-      if(scoreTotal[player]>=13){state='match';setMsg('🏆 '+teamLabel(player)+' GAGNE LE MATCH ! ('+scoreTotal[1]+'–'+scoreTotal[2]+')');return;}
+      if(scoreTotal[player]>=13){state='match';setMsg('🏆 '+teamLabel(player)+' GAGNE LE MATCH ! ('+scoreTotal[1]+'–'+scoreTotal[2]+')');onMatchEnded(player);return;}
     }else{
       lastWinner=0;
     }
@@ -903,6 +995,10 @@ margin-top:12px;
     document.getElementById('p2b').textContent=boules[2];
     const leader=whosLeading();
     if(gameMode==='pvc'&&cur===2){setMsg('La Machine réfléchit…');return;}
+    if(gameMode==='pvr'){
+      const myP=netRole==='host'?1:2;
+      if(cur!==myP){setMsg('⏳ '+teamLabel(cur)+' joue…');return;}
+    }
     setMsg(teamLabel(cur)+(leader?' · '+teamLabel(leader)+' mène':'')+' · Espace=lancer');
     document.getElementById('p1hud').style.outline=cur===1?'2px solid #3a6fc4':'';
     document.getElementById('p2hud').style.outline=cur===2?'2px solid #c43a3a':'';
@@ -916,21 +1012,33 @@ margin-top:12px;
   }
 
   window.newManche=function(){
+    // En mode réseau : seul l'hôte génère les manches
+    if(gameMode==='pvr'&&netRole==='guest'){
+      // Le guest attend que l'hôte envoie le nouvel état — ne rien faire
+      setMsg('En attente de la prochaine manche…');
+      return;
+    }
     if(state==='match'){
-      // Fin de match : réinitialiser complètement et retourner au menu
       scoreTotal={1:0,2:0};
       updateScore();
       state='aim';
+      matchRecorded=false; // nouvelle partie → on pourra ré-enregistrer
     }
     if(raf)cancelAnimationFrame(raf);
     state='aim';mouse={x:SW/2,y:SH*0.55};charge=0;chargeDir=1;balls=[];boules={1:6,2:6};heightLevel=0.15;
     aiTirsManche=0;
     cur=lastWinner||1;
-    const jackX=(1*SCALE)+Math.random()*(WORLD_W-2*SCALE);  // 1m à 3m en X
-    const jackY=(7.5*SCALE)+Math.random()*((12-7.5)*SCALE);  // 7.5m à 12m en Y
+    const jackX=(1*SCALE)+Math.random()*(WORLD_W-2*SCALE);
+    const jackY=(7.5*SCALE)+Math.random()*((12-7.5)*SCALE);
     jack={x:jackX,y:jackY,z:0,vx:0,vy:0,vz:0,mass:2.8,phase:'rolling',active:true};
     updateScore();updateMsg();loop();
     onTurnStart();
+    // En mode réseau : l'hôte envoie l'état initial de manche au guest
+    if(gameMode==='pvr'&&netRole==='host'&&netConn&&netReady){
+      setTimeout(()=>{
+        netConn.send(JSON.stringify({type:'newmanche',balls,jack,boules,scoreTotal,state,cur,lastWinner,teamNames}));
+      },100);
+    }
   };
 
   // ═══════════════════════════════════════════════════════
@@ -987,8 +1095,9 @@ Touz & Roll,0.8,0.8,0.8`;
   }
 
   function populateTeamSelects(){
-    ['select-team1','select-team2'].forEach(id=>{
+    ['select-team1','select-team2','select-team-net'].forEach(id=>{
       const sel=document.getElementById(id);
+      if(!sel)return;
       sel.innerHTML='';
       equipes.forEach((eq,i)=>{
         const opt=document.createElement('option');
@@ -1000,6 +1109,7 @@ Touz & Roll,0.8,0.8,0.8`;
     // Sélections par défaut différentes pour éviter la même équipe des deux côtés
     document.getElementById('select-team1').selectedIndex=0;
     document.getElementById('select-team2').selectedIndex=Math.min(1,equipes.length-1);
+    document.getElementById('select-team-net').selectedIndex=0;
   }
 
   function _updateTeam2Row(){
@@ -1017,11 +1127,230 @@ Touz & Roll,0.8,0.8,0.8`;
   }
   window.selectAiTab=selectAiTab;
 
+  // ── Navigation menu à 2 niveaux ──────────────────────────
+  window.selectMenuSolo=function(){
+    // Jeu Solo = PvC : on affiche directement la config sans passer par le niveau 2
+    document.getElementById('menu-niveau1').style.display='none';
+    document.getElementById('menu-niveau2').style.display='none';
+    selectMode('pvc');
+  };
+
+  window.showSubMenuMulti=function(){
+    document.getElementById('menu-niveau1').style.display='none';
+    document.getElementById('menu-niveau2').style.display='flex';
+    refreshPseudoDisplay();
+    // Première venue : si aucun pseudo enregistré, on le demande
+    if(!getPseudo()){
+      openPseudoEdit(true);
+    }
+  };
+
+  window.showMainMenu=function(){
+    document.getElementById('menu-niveau1').style.display='flex';
+    document.getElementById('menu-niveau2').style.display='none';
+    // Désactiver les boutons de mode et cacher les panneaux spécifiques
+    document.getElementById('btn-pvp').classList.remove('active');
+    document.getElementById('btn-pvr').classList.remove('active');
+    document.getElementById('btn-pvc').classList.remove('active');
+    document.getElementById('net-panel').style.display='none';
+    document.getElementById('ai-config').style.display='none';
+    document.getElementById('team-names').style.display='flex';
+    document.getElementById('btn-start').style.display='block';
+    netCleanup();
+  };
+
+  // ── Overlay déconnexion réseau ────────────────────────────
+  window.showDiscoOverlay=function(){
+    document.getElementById('screen-disco').style.display='flex';
+  };
+
+  window.discoReturnMenu=function(){
+    netCleanup();
+    document.getElementById('screen-disco').style.display='none';
+    showSelect();
+    // Réinitialise le menu au niveau 1
+    document.getElementById('menu-niveau1').style.display='flex';
+    document.getElementById('menu-niveau2').style.display='none';
+  };
+
+  // ═══════════════════════════════════════════════════════
+  //  CLASSEMENT EN LIGNE (Supabase)
+  // ═══════════════════════════════════════════════════════
+  // Clé "anon/public" : conçue pour vivre dans du code client.
+  // La sécurité repose sur les policies Supabase (lecture + insertion seules).
+  const SUPABASE_URL='https://ehvqbazxulvjooeyxatu.supabase.co';
+  const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVodnFiYXp4dWx2am9vZXl4YXR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0Nzk2NzAsImV4cCI6MjA5ODA1NTY3MH0.BYZJDmqRAeUIkfveIP85H4VXHMOtV7nESi9VdVkVjyo';
+  const SUPABASE_HEADERS={
+    'apikey':SUPABASE_KEY,
+    'Authorization':'Bearer '+SUPABASE_KEY,
+    'Content-Type':'application/json'
+  };
+
+  // Insère une partie terminée. Renvoie une promesse (rejetée si échec).
+  function supabaseInsertPartie(p){
+    return fetch(SUPABASE_URL+'/rest/v1/parties',{
+      method:'POST',
+      headers:Object.assign({},SUPABASE_HEADERS,{'Prefer':'return=minimal'}),
+      body:JSON.stringify(p)
+    }).then(r=>{
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return true;
+    });
+  }
+
+  // Récupère toutes les parties (pour agréger le classement)
+  function supabaseFetchParties(){
+    return fetch(SUPABASE_URL+'/rest/v1/parties?select=gagnant,perdant',{
+      headers:SUPABASE_HEADERS
+    }).then(r=>{
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.json();
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  PSEUDO (identité au classement) — stocké localement
+  // ═══════════════════════════════════════════════════════
+  const PSEUDO_KEY='petanque_pseudo';
+  function getPseudo(){
+    try{return (localStorage.getItem(PSEUDO_KEY)||'').trim();}catch(e){return '';}
+  }
+  function setPseudo(p){
+    try{localStorage.setItem(PSEUDO_KEY,p);}catch(e){}
+  }
+  function refreshPseudoDisplay(){
+    const el=document.getElementById('pseudo-display');
+    if(el)el.textContent=getPseudo()||'—';
+  }
+  // editMode true = première saisie obligatoire (pas d'annulation, pas de warning)
+  window.openPseudoEdit=function(firstTime){
+    const inp=document.getElementById('pseudo-input');
+    inp.value=getPseudo();
+    document.getElementById('pseudo-warning').style.display=(firstTime===true)?'none':(getPseudo()?'block':'none');
+    document.getElementById('pseudo-cancel').style.display=(firstTime===true)?'none':'inline-block';
+    document.getElementById('screen-pseudo').style.display='flex';
+    setTimeout(()=>inp.focus(),50);
+  };
+  window.closePseudoEdit=function(){
+    document.getElementById('screen-pseudo').style.display='none';
+  };
+  window.validatePseudo=function(){
+    let v=document.getElementById('pseudo-input').value.trim().slice(0,10);
+    if(!v){document.getElementById('pseudo-input').focus();return;}
+    setPseudo(v);
+    refreshPseudoDisplay();
+    document.getElementById('screen-pseudo').style.display='none';
+  };
+
+  // ═══════════════════════════════════════════════════════
+  //  ENREGISTREMENT D'UNE PARTIE TERMINÉE (hôte uniquement, PvR)
+  // ═══════════════════════════════════════════════════════
+  let pendingPartie=null;     // partie en attente d'envoi (pour réessayer)
+  let matchRecorded=false;    // évite le double-envoi d'un même match
+
+  // Appelé quand un match se termine (state==='match').
+  // Conditions d'enregistrement : mode réseau + rôle hôte + pas déjà enregistré.
+  function onMatchEnded(winner){
+    if(gameMode!=='pvr'||netRole!=='host')return; // seul l'hôte réseau enregistre
+    if(matchRecorded)return;
+    matchRecorded=true;
+    const loser=winner===1?2:1;
+    pendingPartie={
+      gagnant:(netPseudos[winner]||'?').slice(0,10),
+      perdant:(netPseudos[loser]||'?').slice(0,10),
+      score_gagnant:scoreTotal[winner],
+      score_perdant:scoreTotal[loser],
+      team_gagnant:teamNames[winner]||'',
+      team_perdant:teamNames[loser]||''
+    };
+    sendPendingPartie();
+  }
+
+  function sendPendingPartie(){
+    if(!pendingPartie)return;
+    const save=document.getElementById('screen-save');
+    const msg=document.getElementById('save-msg');
+    const btns=document.getElementById('save-buttons');
+    save.style.display='block';
+    btns.style.display='none';
+    msg.textContent='💾 Enregistrement du score…';
+    supabaseInsertPartie(pendingPartie).then(()=>{
+      msg.textContent='✓ Partie enregistrée !';
+      pendingPartie=null;
+      setTimeout(()=>{save.style.display='none';},2200);
+    }).catch(err=>{
+      msg.textContent='⚠ Échec de l\'envoi du score.';
+      btns.style.display='flex';
+    });
+  }
+  window.retryRecordMatch=function(){sendPendingPartie();};
+  window.abandonRecordMatch=function(){
+    pendingPartie=null;
+    const msg=document.getElementById('save-msg');
+    document.getElementById('save-buttons').style.display='none';
+    msg.textContent='Désolé, la partie n\'a pas pu être enregistrée.';
+    setTimeout(()=>{document.getElementById('screen-save').style.display='none';},2600);
+  };
+
+  // ═══════════════════════════════════════════════════════
+  //  ÉCRAN CLASSEMENT (lecture fraîche à chaque ouverture)
+  // ═══════════════════════════════════════════════════════
+  window.openClassement=function(){
+    const body=document.getElementById('classement-body');
+    document.getElementById('screen-classement').style.display='flex';
+    body.innerHTML='<div style="padding:20px;color:#aaa;">Chargement…</div>';
+    supabaseFetchParties().then(rows=>{
+      renderClassement(rows);
+    }).catch(err=>{
+      body.innerHTML='<div style="padding:20px;color:#e0a030;line-height:1.8;">⚠ Impossible de charger le classement.<br>Vérifie ta connexion.</div>';
+    });
+  };
+  window.closeClassement=function(){
+    document.getElementById('screen-classement').style.display='none';
+  };
+  function renderClassement(rows){
+    const body=document.getElementById('classement-body');
+    // Agrégation par pseudo : victoires (gagnant) et défaites (perdant)
+    const stats={};
+    function ensure(p){if(!stats[p])stats[p]={pseudo:p,v:0,d:0};return stats[p];}
+    rows.forEach(r=>{
+      if(r.gagnant)ensure(r.gagnant).v++;
+      if(r.perdant)ensure(r.perdant).d++;
+    });
+    const list=Object.values(stats).sort((a,b)=>b.v-a.v||a.d-b.d||a.pseudo.localeCompare(b.pseudo));
+    if(!list.length){
+      body.innerHTML='<div style="padding:20px;color:#aaa;line-height:1.8;">Aucune partie enregistrée<br>pour l\'instant.</div>';
+      return;
+    }
+    let html='<table style="width:100%;border-collapse:collapse;font-family:\'Press Start 2P\',monospace;">';
+    html+='<tr style="color:#ffe87a;font-size:8px;"><th style="text-align:left;padding:6px 4px;">#</th><th style="text-align:left;padding:6px 4px;">PSEUDO</th><th style="padding:6px 4px;">V</th><th style="padding:6px 4px;">D</th></tr>';
+    list.forEach((s,i)=>{
+      const bg=i%2?'rgba(255,255,255,0.04)':'transparent';
+      const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+      html+='<tr style="background:'+bg+';font-size:9px;color:#ddd;">'
+        +'<td style="padding:6px 4px;text-align:left;">'+medal+'</td>'
+        +'<td style="padding:6px 4px;text-align:left;color:#ffe87a;">'+escapeHtml(s.pseudo)+'</td>'
+        +'<td style="padding:6px 4px;text-align:center;color:#7dca7d;">'+s.v+'</td>'
+        +'<td style="padding:6px 4px;text-align:center;color:#d08080;">'+s.d+'</td>'
+        +'</tr>';
+    });
+    html+='</table>';
+    body.innerHTML=html;
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+
   window.selectMode=function(m){
     gameMode=m;
     document.getElementById('btn-pvp').classList.toggle('active',m==='pvp');
     document.getElementById('btn-pvc').classList.toggle('active',m==='pvc');
+    document.getElementById('btn-pvr').classList.toggle('active',m==='pvr');
     document.getElementById('ai-config').style.display=m==='pvc'?'flex':'none';
+    document.getElementById('net-panel').style.display=m==='pvr'?'flex':'none';
+    document.getElementById('team-names').style.display=m==='pvr'?'none':'flex';
+    document.getElementById('btn-start').style.display=m==='pvr'?'none':'block';
   };
 
   // Difficulté manuelle : Facile=Moyen actuel (0.5), Moyen=Bon actuel (0.75), Expert (1.0)
@@ -1194,6 +1523,16 @@ Touz & Roll,0.8,0.8,0.8`;
     document.getElementById('rules-hint').style.display='none';
     document.getElementById('screen-rules').style.display='none';
     document.getElementById('end-arb').style.display='none';
+    // Réinitialise le menu au niveau 1
+    document.getElementById('menu-niveau1').style.display='flex';
+    document.getElementById('menu-niveau2').style.display='none';
+    document.getElementById('btn-pvp').classList.remove('active');
+    document.getElementById('btn-pvr').classList.remove('active');
+    document.getElementById('btn-pvc').classList.remove('active');
+    document.getElementById('net-panel').style.display='none';
+    document.getElementById('ai-config').style.display='none';
+    document.getElementById('team-names').style.display='flex';
+    document.getElementById('btn-start').style.display='block';
   };
 
   // ── Musique ─────────────────────────────────────────────
@@ -1206,11 +1545,17 @@ Touz & Roll,0.8,0.8,0.8`;
     document.getElementById('btn-son').textContent=sonActive?'🔊 Son':'🔇 Son';
   };
 
-  // Init écran
+  // Init écran : menu au niveau 1, aucun mode activé
   equipes=parseCSV(EQUIPES_CSV);
   populateTeamSelects();
-  selectMode('pvp');
+  gameMode='pvp'; // mode par défaut (PvP local), sans activer les boutons du niveau 2
   selectAiTab('equipes');
+  // Pré-affichage du pseudo connu + validation par Entrée
+  refreshPseudoDisplay();
+  (function(){
+    const inp=document.getElementById('pseudo-input');
+    if(inp)inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();validatePseudo();}});
+  })();
 
   // ═══════════════════════════════════════════════════════
   //  EVENTS JOUEUR
@@ -1221,10 +1566,17 @@ Touz & Roll,0.8,0.8,0.8`;
     mouse.y=(e.clientY-r.top)*(SH/r.height);
     if(state==='aim'||state==='charge')updateMsg();
   });
+
+  function isMyTurn(){
+    if(gameMode==='pvc'&&cur===2)return false;
+    if(gameMode==='pvr'){const myP=netRole==='host'?1:2;return cur===myP;}
+    return true;
+  }
+
   canvas.addEventListener('wheel',e=>{
     e.preventDefault();
     if(!(state==='aim'||state==='charge'))return;
-    if(gameMode==='pvc'&&cur===2)return;
+    if(!isMyTurn())return;
     heightLevel=Math.max(0,Math.min(1,heightLevel-e.deltaY*0.002));
   },{passive:false});
 
@@ -1241,13 +1593,16 @@ Touz & Roll,0.8,0.8,0.8`;
     // Touche A : toggle overlay règles (en jeu seulement)
     if(e.key==='a'||e.key==='A'){toggleRules();return;}
     if(e.code!=='Space')return;e.preventDefault();
-    if(['done','cancelled'].includes(state)){newManche();return;}
-    if(gameMode==='pvc'&&cur===2)return;
+    if(['done','cancelled','match'].includes(state)){
+      if(gameMode==='pvr'&&netRole==='guest')return; // guest attend l'hôte
+      newManche();return;
+    }
+    if(!isMyTurn())return;
     if(state==='aim'&&boules[cur]>0){state='charge';charge=0;chargeDir=1;}
   });
   document.addEventListener('keyup',e=>{
     if(e.code!=='Space')return;e.preventDefault();
-    if(gameMode==='pvc'&&cur===2)return;
+    if(!isMyTurn())return;
     if(state==='charge')launch();
   });
 
@@ -1267,8 +1622,11 @@ Touz & Roll,0.8,0.8,0.8`;
     e.preventDefault();
     const t=e.changedTouches[0];
     setAimFromPoint(t.clientX,t.clientY);
-    if(['done','cancelled'].includes(state)){newManche();return;}
-    if(gameMode==='pvc'&&cur===2)return;
+    if(['done','cancelled','match'].includes(state)){
+      if(gameMode==='pvr'&&netRole==='guest')return;
+      newManche();return;
+    }
+    if(!isMyTurn())return;
     if(state==='aim'&&boules[cur]>0){state='charge';charge=0;chargeDir=1;}
   },{passive:false});
   canvas.addEventListener('touchmove',e=>{
@@ -1278,7 +1636,7 @@ Touz & Roll,0.8,0.8,0.8`;
   },{passive:false});
   canvas.addEventListener('touchend',e=>{
     e.preventDefault();
-    if(gameMode==='pvc'&&cur===2)return;
+    if(!isMyTurn())return;
     if(state==='charge')launch();
   },{passive:false});
   canvas.addEventListener('touchcancel',e=>{
@@ -1294,12 +1652,12 @@ Touz & Roll,0.8,0.8,0.8`;
   }
   heightZone.addEventListener('touchstart',e=>{
     e.preventDefault();
-    if(gameMode==='pvc'&&cur===2)return;
+    if(!isMyTurn())return;
     setHeightFromY(e.changedTouches[0].clientY);
   },{passive:false});
   heightZone.addEventListener('touchmove',e=>{
     e.preventDefault();
-    if(gameMode==='pvc'&&cur===2)return;
+    if(!isMyTurn())return;
     setHeightFromY(e.changedTouches[0].clientY);
   },{passive:false});
 
@@ -1307,6 +1665,7 @@ Touz & Roll,0.8,0.8,0.8`;
   //  UPDATE & DRAW
   // ═══════════════════════════════════════════════════════
   function update(){
+    const isGuestWaiting = false; // le guest simule localement, resync après allStopped
     if(state==='charge'){
       charge+=0.013*chargeDir;
       if(charge>=1){charge=1;chargeDir=-1;}
@@ -1325,7 +1684,10 @@ Touz & Roll,0.8,0.8,0.8`;
         if(b.active&&b.phase==='rolling'&&!inTerrain(b.x,b.y)){b.active=false;b.vx=0;b.vy=0;}
       }
       if(jack.phase==='rolling'&&!inTerrain(jack.x,jack.y)){jack.vx=0;jack.vy=0;handleJackOut();}
-      if(allStopped([...balls,jack])){if(!['done','cancelled','match'].includes(state))nextTurn();}
+      if(allStopped([...balls,jack])){
+        if(!['done','cancelled','match'].includes(state))nextTurn();
+        netSyncAfterStop();
+      }
     }
   }
 
@@ -1621,25 +1983,29 @@ Touz & Roll,0.8,0.8,0.8`;
       ctx.font='bold 10px sans-serif';ctx.fillStyle='white';ctx.textAlign='center';ctx.fillText('PUISSANCE',SW/2,gy+10);
     }
     if(['done','cancelled','match'].includes(state)){
-      const hasNext=['done','cancelled'].includes(state);
+      const hasNext=['done','cancelled','match'].includes(state);
       const bandH=hasNext?88:58;
       ctx.fillStyle='rgba(0,0,0,0.70)';ctx.fillRect(0,SH/2-bandH/2,SW,bandH);
       ctx.textAlign='center';
       const{player,pts}=countPoints();
+      // En réseau, le guest n'a pas la main pour relancer (c'est l'hôte qui génère)
+      const guestWaiting=(gameMode==='pvr'&&netRole==='guest');
+      const relanceTxt=guestWaiting?'En attente de l\'hôte…':'Appuyer sur Espace pour la prochaine mène';
       // Ligne 1 : résultat principal
       let line1,line2='';
       if(state==='match'){
         line1='🏆 '+teamLabel(player)+' GAGNE LE MATCH !';
-        line2='Score final : '+scoreTotal[1]+' – '+scoreTotal[2];
+        line2='Score final : '+scoreTotal[1]+' – '+scoreTotal[2]+'   ·   '
+          +(guestWaiting?'En attente de l\'hôte…':'Espace pour une nouvelle partie');
       } else if(state==='cancelled'){
         line1='Cochonnet sorti — Manche annulée';
-        line2='Appuyer sur Espace pour la prochaine mène';
+        line2=relanceTxt;
       } else if(player&&pts>0){
         line1=teamLabel(player)+' marque '+pts+' pt'+(pts>1?'s':'');
-        line2='Score : '+scoreTotal[1]+' – '+scoreTotal[2]+'   ·   Appuyer sur Espace pour la prochaine mène';
+        line2='Score : '+scoreTotal[1]+' – '+scoreTotal[2]+'   ·   '+relanceTxt;
       } else {
         line1='Manche nulle';
-        line2='Score : '+scoreTotal[1]+' – '+scoreTotal[2]+'   ·   Appuyer sur Espace pour la prochaine mène';
+        line2='Score : '+scoreTotal[1]+' – '+scoreTotal[2]+'   ·   '+relanceTxt;
       }
       ctx.font='bold 17px sans-serif';ctx.fillStyle='white';
       ctx.fillText(line1,SW/2,SH/2-(hasNext?12:0));
@@ -1666,6 +2032,266 @@ Touz & Roll,0.8,0.8,0.8`;
       el.style.display='none';
     }
   }
+  // ═══════════════════════════════════════════════════════
+  //  MODE RÉSEAU (PeerJS)
+  // ═══════════════════════════════════════════════════════
+  let netPeer=null,netConn=null,netRole=null; // role: 'host' | 'guest'
+  let netReady=false;
+
+  // Génère un code court lisible (6 chiffres)
+  function netMakeId(){return Math.floor(100000+Math.random()*900000).toString();}
+
+  window.copyNetId=function(){
+    const id=document.getElementById('net-myid').textContent;
+    navigator.clipboard&&navigator.clipboard.writeText(id).then(()=>{
+      document.getElementById('net-status').textContent='✓ Code copié !';
+      setTimeout(()=>document.getElementById('net-status').textContent='En attente de connexion…',2000);
+    });
+  };
+
+  window.netInitHost=function(){
+    netCleanup();
+    netRole='host';
+    const myId=netMakeId();
+    document.getElementById('net-host-section').style.display='flex';
+    document.getElementById('net-join-section').style.display='none';
+    document.getElementById('net-myid').textContent='…';
+    document.getElementById('net-status').textContent='Connexion aux serveurs…';
+
+    // Chargement dynamique de PeerJS si nécessaire
+    netLoadPeer(()=>{
+      netPeer=new Peer(myId,{debug:0});
+      netPeer.on('open',id=>{
+        document.getElementById('net-myid').textContent=id;
+        document.getElementById('net-status').textContent='En attente de connexion…';
+      });
+      netPeer.on('connection',conn=>{
+        netConn=conn;
+        netSetupConn();
+        document.getElementById('net-status').textContent='✓ Adversaire connecté !';
+        setTimeout(()=>{
+          netReady=true;
+          netStartHeartbeat();
+          netStartGame();
+        },600);
+      });
+      netPeer.on('error',e=>document.getElementById('net-status').textContent='Erreur: '+e.type);
+    });
+  };
+
+  window.netInitJoin=function(){
+    netCleanup();
+    document.getElementById('net-host-section').style.display='none';
+    document.getElementById('net-join-section').style.display='flex';
+    document.getElementById('net-join-status').textContent='';
+  };
+
+  window.netJoin=function(){
+    const remoteId=document.getElementById('net-remote-id').value.trim();
+    if(!remoteId){document.getElementById('net-join-status').textContent='Entre un code.';return;}
+    netRole='guest';
+    document.getElementById('net-join-status').textContent='Connexion…';
+    netLoadPeer(()=>{
+      netPeer=new Peer(netMakeId(),{debug:0});
+      netPeer.on('open',()=>{
+        netConn=netPeer.connect(remoteId,{reliable:true});
+        netSetupConn();
+        netConn.on('open',()=>{
+          document.getElementById('net-join-status').textContent='✓ Connecté ! Attente du départ…';
+          // Préparer l'affichage côté guest sans attendre l'état
+          netRole='guest';
+          netReady=true;
+          netStartHeartbeat();
+          // Le guest est le Joueur 2 : son équipe choisie. J1 sera nommé
+          // dès réception du nom envoyé par l'hôte (message 'teamname').
+          teamNames[2]=netMyTeamName();
+          teamNames[1]='En attente…';
+          netPseudos[2]=getPseudo()||'Joueur 2';
+          document.getElementById('p1name').textContent=teamNames[1];
+          document.getElementById('p2name').textContent=teamNames[2];
+          // Envoyer notre nom d'équipe + pseudo à l'hôte
+          if(netConn&&netConn.open){
+            try{netConn.send(JSON.stringify({type:'teamname',player:2,name:teamNames[2],pseudo:netPseudos[2]}));}catch(e){}
+          }
+          document.getElementById('screen-splash').style.display='none';
+          document.getElementById('screen-select').style.display='none';
+          document.getElementById('rules-hint').style.display='flex';
+          document.getElementById('screen-rules').style.display='flex';
+          document.body.classList.add('in-game');
+          scoreTotal={1:0,2:0};
+          balls=[];jack={x:WORLD_W/2,y:WORLD_H/2,z:0,vx:0,vy:0,vz:0,mass:2.8,phase:'rolling',active:true};
+          boules={1:6,2:6};state='aim';cur=1;
+          updateScore();
+          setMsg('⏳ En attente de la partie…');
+          if(!raf)loop();
+        });
+        netConn.on('error',e=>document.getElementById('net-join-status').textContent='Erreur: '+e);
+      });
+      netPeer.on('error',e=>document.getElementById('net-join-status').textContent='Erreur: '+e.type);
+    });
+  };
+
+  function netLoadPeer(cb){
+    if(window.Peer){cb();return;}
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js';
+    s.onload=cb;
+    s.onerror=()=>alert('Impossible de charger PeerJS. Vérifie ta connexion internet.');
+    document.head.appendChild(s);
+  }
+
+  // ── Détection de déconnexion : heartbeat ping/pong + signal explicite ──
+  let netHeartbeatTimer=null;   // envoi périodique de pings
+  let netWatchdogTimer=null;    // déclenche la déco si aucun pong/message reçu à temps
+  let netLastSeen=0;            // timestamp du dernier message reçu de l'adversaire
+  const NET_PING_INTERVAL=2000; // on envoie un ping toutes les 2s
+  const NET_TIMEOUT=7000;       // si rien reçu depuis 7s → connexion considérée perdue
+
+  function netStartHeartbeat(){
+    netStopHeartbeat();
+    netLastSeen=Date.now();
+    netHeartbeatTimer=setInterval(()=>{
+      if(netConn&&netConn.open){
+        try{netConn.send(JSON.stringify({type:'ping'}));}catch(e){}
+      }
+    },NET_PING_INTERVAL);
+    netWatchdogTimer=setInterval(()=>{
+      if(netReady&&Date.now()-netLastSeen>NET_TIMEOUT){
+        netHandleLost();
+      }
+    },1000);
+  }
+  function netStopHeartbeat(){
+    if(netHeartbeatTimer){clearInterval(netHeartbeatTimer);netHeartbeatTimer=null;}
+    if(netWatchdogTimer){clearInterval(netWatchdogTimer);netWatchdogTimer=null;}
+  }
+  // Appelé une seule fois quand la connexion est perdue (close, error, timeout ou bye)
+  function netHandleLost(){
+    if(!netReady)return;
+    netReady=false; // évite les déclenchements multiples
+    netStopHeartbeat();
+    setMsg('⚠ Connexion perdue avec l\'adversaire.');
+    showDiscoOverlay();
+  }
+
+  function netSetupConn(){
+    netConn.on('data',netOnData);
+    netConn.on('close',()=>{if(netReady)netHandleLost();});
+    netConn.on('error',()=>{if(netReady)netHandleLost();});
+  }
+
+  function netCleanup(){
+    netStopHeartbeat();
+    // Prévenir l'adversaire qu'on quitte proprement (s'il est encore là)
+    if(netConn&&netConn.open){try{netConn.send(JSON.stringify({type:'bye'}));}catch(e){}}
+    if(netConn){try{netConn.close();}catch(e){}}
+    if(netPeer){try{netPeer.destroy();}catch(e){}}
+    netPeer=null;netConn=null;netReady=false;
+  }
+
+  // Avertir l'adversaire en cas de fermeture/rechargement de l'onglet
+  window.addEventListener('beforeunload',()=>{
+    if(netConn&&netConn.open){try{netConn.send(JSON.stringify({type:'bye'}));}catch(e){}}
+  });
+
+  // Nom d'équipe choisi par le joueur local en mode réseau
+  function netMyTeamName(){
+    const idx=parseInt(document.getElementById('select-team-net').value)||0;
+    return equipes[idx]?equipes[idx].nom:'Équipe';
+  }
+
+  // L'hôte démarre la partie et envoie l'état initial
+  function netStartGame(){
+    // L'hôte est le Joueur 1 : son équipe choisie. Le Joueur 2 sera nommé
+    // dès réception du nom envoyé par le guest (message 'teamname').
+    teamNames[1]=netMyTeamName();
+    if(!teamNames[2]||teamNames[2]==='Équipe 2'||teamNames[2]==='Équipe 1')teamNames[2]='En attente…';
+    netPseudos[1]=getPseudo()||'Joueur 1';
+    document.getElementById('p1name').textContent=teamNames[1];
+    document.getElementById('p2name').textContent=teamNames[2];
+    document.getElementById('screen-splash').style.display='none';
+    document.getElementById('screen-select').style.display='none';
+    document.getElementById('rules-hint').style.display='flex';
+    document.getElementById('screen-rules').style.display='flex';
+    document.body.classList.add('in-game');
+    scoreTotal={1:0,2:0};
+    matchRecorded=false; // nouvelle session de jeu réseau
+    if(netConn&&netConn.open){
+      try{netConn.send(JSON.stringify({type:'teamname',player:1,name:teamNames[1],pseudo:netPseudos[1]}));}catch(e){}
+    }
+    newManche(); // hôte génère le jack, envoie l'état via netSyncAfterStop
+  }
+
+  // Sérialise l'état complet du jeu
+  function netSerialize(){
+    return JSON.stringify({type:'state',balls,jack,boules,scoreTotal,state,cur,lastWinner,teamNames});
+  }
+
+  // Applique un état reçu
+  function netApplyState(s){
+    balls=s.balls;jack=s.jack;boules=s.boules;scoreTotal=s.scoreTotal;
+    state=s.state;cur=s.cur;lastWinner=s.lastWinner;
+    // Synchronise les noms d'équipe si fournis (sans écraser par un placeholder)
+    if(s.teamNames){
+      [1,2].forEach(p=>{
+        const n=s.teamNames[p];
+        if(n&&n!=='En attente…'){
+          teamNames[p]=n;
+          const el=document.getElementById('p'+p+'name');
+          if(el)el.textContent=n;
+        }
+      });
+    }
+    updateScore();updateMsg();
+    if(!raf)loop();
+  }
+
+  // Appelé après chaque fin de physique (allStopped) pour sync
+  function netSyncAfterStop(){
+    if(gameMode!=='pvr'||!netConn||!netReady)return;
+    const myPlayer=netRole==='host'?1:2;
+    // C'est à l'autre de jouer (ou fin de manche) → on envoie l'état
+    if(cur!==myPlayer||['done','cancelled','match'].includes(state)){
+      netConn.send(netSerialize());
+    }
+  }
+
+  // Réception d'un état de l'adversaire
+  function netOnData(raw){
+    // Tout message reçu = preuve que l'adversaire est encore là
+    netLastSeen=Date.now();
+    try{
+      const msg=JSON.parse(raw);
+      if(msg.type==='ping'){
+        // Répondre par un pong pour que l'autre côté sache aussi qu'on est là
+        if(netConn&&netConn.open){try{netConn.send(JSON.stringify({type:'pong'}));}catch(e){}}
+        return;
+      }
+      if(msg.type==='pong'){return;} // juste un signe de vie, déjà enregistré
+      if(msg.type==='bye'){ // l'adversaire quitte proprement
+        netHandleLost();
+        return;
+      }
+      if(msg.type==='teamname'){
+        // L'adversaire annonce le nom de son équipe (et son pseudo)
+        if(msg.player===1||msg.player===2){
+          teamNames[msg.player]=msg.name;
+          if(msg.pseudo)netPseudos[msg.player]=msg.pseudo;
+          const el=document.getElementById('p'+msg.player+'name');
+          if(el)el.textContent=msg.name;
+          updateMsg();
+        }
+        return;
+      }
+      if(msg.type==='state'||msg.type==='newmanche'){
+        netApplyState(msg);
+      }
+    }catch(e){console.warn('netOnData parse error',e);}
+  }
+
+  // Patch de nextTurn pour injecter la sync réseau
+  const _origNextTurn=window._nextTurn; // patch via surcharge locale
+
   function loop(){update();draw();syncEndArb();raf=requestAnimationFrame(loop);}
   scoreTotal={1:0,2:0};
   mouse={x:SW/2,y:SH*0.55};state='aim';balls=[];boules={1:6,2:6};cur=1;
