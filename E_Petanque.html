@@ -26,6 +26,7 @@
     touch-action:none;
   }
   #hud,.side-panel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;}
+  #side-right{min-width:160px;width:160px;}
   .pb{background:#2a2a2a;border:1px solid #444;border-radius:6px;padding:3px 10px;color:#aaa;}
   .pb span{font-weight:600;color:#eee;}
 
@@ -43,7 +44,7 @@
     body.is-fullscreen .side-panel button{width:100%;}
     body.is-fullscreen #msg{text-align:center;min-width:0;}
   }
-  #msg{flex:1;text-align:right;color:#aaa;min-width:160px;}
+  #msg{flex:1;text-align:right;color:#aaa;min-width:160px;min-height:2.5em;overflow:hidden;}
   button{background:#333;border:1px solid #555;color:#eee;border-radius:6px;padding:4px 14px;cursor:pointer;font-size:13px;}
   button:hover{background:#444;}
 
@@ -209,7 +210,7 @@
 
   /* ═══ HINT ARBITRE (côté droit, en jeu) ═══ */
   #rules-hint{
-    position:absolute;right:6px;bottom:130px;
+    position:absolute;right:1%;bottom:13%;width:14%;
     display:none;flex-direction:column;align-items:center;gap:0;
     cursor:pointer;z-index:5;
     animation:arb-bob 2.2s ease-in-out infinite;
@@ -217,21 +218,21 @@
   }
   @keyframes arb-bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-7px);}}
   #rules-hint img{
-    width:90px;image-rendering:pixelated;
+    width:100%;image-rendering:pixelated;
     filter:drop-shadow(0 4px 8px rgba(0,0,0,0.7));
   }
   #rules-hint-badge{
-    display:flex;flex-direction:column;align-items:center;gap:2px;
+    display:flex;flex-direction:column;align-items:center;gap:2%;
     background:rgba(0,0,0,0.80);border:1px solid #ffe87a;border-radius:5px;
-    padding:4px 10px;margin-top:-6px;
+    padding:3% 8%;margin-top:-6%;width:100%;box-sizing:border-box;
   }
   #rules-hint-badge .lbl{
-    font-family:'Press Start 2P',monospace;font-size:9px;
+    font-family:'Press Start 2P',monospace;font-size:clamp(5px,1.5%,9px);
     color:#ffe87a;letter-spacing:1px;white-space:nowrap;
   }
   #rules-hint-badge .key{
-    font-family:'Press Start 2P',monospace;font-size:10px;
-    color:#1a0e00;background:#ffe87a;padding:3px 8px;border-radius:2px;
+    font-family:'Press Start 2P',monospace;font-size:clamp(6px,1.8%,10px);
+    color:#1a0e00;background:#ffe87a;padding:2% 6%;border-radius:2px;
   }
 
   /* ═══ OVERLAY RÈGLES ═══ */
@@ -469,26 +470,39 @@ margin-top:12px;
   const SCALE=40,WORLD_W_M=4,WORLD_H_M=15;
   const WORLD_W=WORLD_W_M*SCALE,WORLD_H=WORLD_H_M*SCALE;
   const P={yNear:436,yFar:52,wNear:442,wFar:172,cx:316};
+  // d : distance virtuelle de caméra (perspective) — plus petit = perspective plus forte
+  const P_D=400;
+
+  // t perspectif : 0 (joueur) → 1 (fond), courbe en 1/z
+  function tPersp(wy){return(wy*(P_D+WORLD_H))/(WORLD_H*(P_D+wy));}
+  // Inverse : wy depuis t perspectif
+  function tPerspInv(t){return P_D*t*WORLD_H/((P_D+WORLD_H)-t*WORLD_H);}
 
   function project(wx,wy,wz){
-    const t=wy/WORLD_H;
+    const t=tPersp(wy);
     const syGnd=P.yNear+(P.yFar-P.yNear)*t;
     const halfW=(P.wNear+(P.wFar-P.wNear)*t)/2;
     const sx=P.cx+(wx-WORLD_W/2)/(WORLD_W/2)*halfW;
     const zLift=(wz||0)*(1-t*0.55)*0.7;
     return{sx,sy:syGnd-zLift,syGnd};
   }
-  function scaleAt(wy){return 1.0-(wy/WORLD_H)*0.60;}
+  function scaleAt(wy){return 1.0-tPersp(wy)*0.60;}
   function screenToWorld(sx,sy){
     const t=Math.max(0,Math.min(1,(sy-P.yNear)/(P.yFar-P.yNear)));
-    const wy=t*WORLD_H;
+    const wy=tPerspInv(t);
     const halfW=(P.wNear+(P.wFar-P.wNear)*t)/2;
     const wx=WORLD_W/2+(sx-P.cx)/halfW*(WORLD_W/2);
     return{wx,wy};
   }
 
   // ── Constantes physique ──────────────────────────────────
-  const BR_BASE=10,JR_BASE=5;
+  const BR_BASE=10,JR_BASE=5; // rayons VISUELS px (rendu uniquement)
+  // Rayons RÉELS (réglementation pétanque officielle) en unités-monde, pour la mesure de distance bord-à-bord
+  const BALL_R_REAL=3.75/100*SCALE; // boule : Ø 70.5–80mm ⇒ rayon ≈3.75cm
+  const JACK_R_REAL=1.5/100*SCALE;  // cochonnet : Ø ~30mm ⇒ rayon ≈1.5cm
+  // Rayons de COLLISION en unités-monde (correspondent au visuel perçu)
+  const BALL_R_COL=3.65;  // ≈9.1cm — calibré sur BR_BASE visuel converti en monde
+  const JACK_R_COL=1.82;  // ≈4.6cm — même ratio que JR_BASE/BR_BASE
   const G=0.38,REST_BALL=0.72,REST_GND=0.30,ROLL_FRIC=0.982;
   const BR_FLY_MAX=1.85;
   const ORIGIN={x:WORLD_W/2,y:0.5*SCALE};
@@ -532,7 +546,7 @@ margin-top:12px;
   function inTerrain(x,y){return x>=0&&x<=WORLD_W&&y>=0&&y<=WORLD_H;}
   function dist2(a,b){
   const centres = Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2);
-  return Math.max(0, centres - BR_BASE - JR_BASE);
+  return Math.max(0, centres - BALL_R_REAL - JACK_R_REAL);
   }
   let heightLevel=0.15; // 0→1, contrôlé à la molette
   function getLaunchHeight(){
@@ -540,7 +554,7 @@ margin-top:12px;
     // plombé ne commence vraiment qu'à partir de heightLevel≈0.75
     return Math.pow(Math.max(0,Math.min(1,heightLevel)),1.8);
   }
-  function effectiveR(b){return(b.mass<0.5?JR_BASE:BR_BASE)*scaleAt(b.y);}
+  function effectiveR(b){return b.mass<0.5?JACK_R_COL:BALL_R_COL;}
 
   function rrect(x,y,w,h,r){
     r=Math.min(r,w/2,h/2);ctx.beginPath();
@@ -815,17 +829,18 @@ margin-top:12px;
     for(const b of act){if(b.player===leader&&dist2(b,jack)<oppMin)pts++;}
     return{player:leader,pts};
   }
-  // Combine meneur, points actuels et distance de sa boule la plus proche (pour le panneau HUD + le cercle pointillé)
+  // Combine meneur, points actuels et boule la plus proche (pour le panneau HUD + la vue rapprochée)
   function leadInfo(){
     const act=balls.filter(b=>b.active&&b.phase==='rolling');
     if(!act.length)return null;
-    let leader=0,bestD=Infinity;
-    for(const b of act){const d=dist2(b,jack);if(d<bestD){bestD=d;leader=b.player;}}
+    let leader=0,bestD=Infinity,bestBall=null;
+    for(const b of act){const d=dist2(b,jack);if(d<bestD){bestD=d;leader=b.player;bestBall=b;}}
     if(!leader)return null;
     const oppMin=Math.min(...act.filter(b=>b.player!==leader).map(b=>dist2(b,jack)).concat(Infinity));
     let pts=0;
     for(const b of act){if(b.player===leader&&dist2(b,jack)<oppMin)pts++;}
-    return{player:leader,pts,distPx:bestD,distCm:Math.round(bestD/SCALE*100)};
+    const edgeDist=Math.max(0,bestD-BALL_R_COL-JACK_R_COL);
+    return{player:leader,pts,distPx:bestD,distCm:Math.round(edgeDist/SCALE*100),ball:bestBall};
   }
   function checkOOB(){
     for(const b of balls){
@@ -901,7 +916,12 @@ margin-top:12px;
   }
 
   window.newManche=function(){
-    if(state==='match')return;
+    if(state==='match'){
+      // Fin de match : réinitialiser complètement et retourner au menu
+      scoreTotal={1:0,2:0};
+      updateScore();
+      state='aim';
+    }
     if(raf)cancelAnimationFrame(raf);
     state='aim';mouse={x:SW/2,y:SH*0.55};charge=0;chargeDir=1;balls=[];boules={1:6,2:6};heightLevel=0.15;
     aiTirsManche=0;
@@ -1429,6 +1449,120 @@ Touz & Roll,0.8,0.8,0.8`;
     ctx.font='13px sans-serif';ctx.fillStyle='#ccc';
     ctx.fillText('Plus proche : '+lead.distCm+' cm',x+10,infoY+16);
     ctx.restore();
+    return{x,y,w,h};
+  }
+
+  // Renvoie jusqu'à n boules (toutes équipes confondues) triées par distance au cochonnet
+  function closestBallsToJack(n){
+    const act=balls.filter(b=>b.active&&b.phase==='rolling');
+    return act.map(b=>({ball:b,distCm:Math.round(Math.max(0,dist2(b,jack)-BALL_R_COL-JACK_R_COL)/SCALE*100)}))
+              .sort((a,b)=>a.distCm-b.distCm)
+              .slice(0,n);
+  }
+
+  // Vue "caméra de référence" : cochonnet + 3 boules les plus proches, en plan plat
+  // (sans la projection en perspective) pour donner une vraie idée des écarts,
+  // que la perspective du terrain principal a tendance à fausser visuellement.
+  // L'échelle s'adapte pour que les écarts RELATIFS entre les boules restent fidèles.
+  function drawClosestBallRefCam(closest,panelRect){
+    if(!closest||!closest.length||!panelRect)return;
+    const x=panelRect.x,w=panelRect.w;
+    const y=panelRect.y+panelRect.h+8,h=134; // -20%
+
+    ctx.save();
+    ctx.beginPath();rrect(x,y,w,h,8);ctx.clip();
+
+    // ── Fond sable style terrain ──────────────────────────────────────
+    ctx.fillStyle='#c8a96e';ctx.fillRect(x,y,w,h);
+    // Grille horizontale (lignes parallèles = lignes de profondeur du terrain)
+    ctx.strokeStyle='rgba(80,50,20,0.22)';ctx.lineWidth=0.5;
+    const gridStep=h/7;
+    for(let gi=0;gi<=7;gi++){
+      const gy=y+gi*gridStep;
+      ctx.beginPath();ctx.moveTo(x,gy);ctx.lineTo(x+w,gy);ctx.stroke();
+    }
+    // Grille verticale
+    const vStep=w/5;
+    for(let gi=0;gi<=5;gi++){
+      const gx=x+gi*vStep;
+      ctx.beginPath();ctx.moveTo(gx,y);ctx.lineTo(gx,y+h);ctx.stroke();
+    }
+
+    ctx.restore();
+    ctx.save();
+
+    // ── Cadre et titre ───────────────────────────────────────────────
+    ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=1.5;rrect(x,y,w,h,8);ctx.stroke();
+    outlineText('VUE RAPPROCHÉE',x+w/2,y+12,'#fff','9px sans-serif','center');
+
+    // ── Scène : orientation fixe axe terrain ─────────────────────────
+    // X monde → X écran (gauche/droite)
+    // Y monde → Y écran INVERSÉ (wy grand = haut écran = fond terrain = haut de la vue)
+    // Cochonnet ancré en bas-centre, les boules au-dessus selon leur wy
+    const margin=10;
+    const stageTop=y+18,stageH=h-30;
+    const stageL=x+margin,stageR=x+w-margin;
+    const stageBot=y+h-18;
+
+    const cmPerWU=100/SCALE;
+    const withOffsets=closest.map(e=>{
+      const dxCm=(e.ball.x-jack.x)*cmPerWU;
+      const dyCm=(e.ball.y-jack.y)*cmPerWU;
+      return{...e,dxCm,dyCm,magCm:Math.sqrt(dxCm*dxCm+dyCm*dyCm)};
+    });
+
+    // Trouver l'emprise des points (cochonnet + boules) en cm
+    const allDx=[0,...withOffsets.map(o=>o.dxCm)];
+    const allDy=[0,...withOffsets.map(o=>o.dyCm)];
+    const minDx=Math.min(...allDx), maxDx=Math.max(...allDx);
+    const minDy=Math.min(...allDy), maxDy=Math.max(...allDy);
+    const spanX=Math.max(maxDx-minDx,8), spanY=Math.max(maxDy-minDy,8);
+
+    // Échelle qui fait tenir tout le nuage dans la scène
+    const sceneW=stageR-stageL, sceneH=stageBot-stageTop;
+    const K=Math.min(sceneW/spanX, sceneH/spanY)*0.80;
+
+    // Position du cochonnet : centrée sur le nuage entier
+    const midDx=(minDx+maxDx)/2, midDy=(minDy+maxDy)/2;
+    const jackScreenX=(stageL+stageR)/2 - midDx*K;
+    const jackScreenY=(stageTop+stageBot)/2 + midDy*K;
+
+    // Indicateur de direction "fond du terrain" (flèche vers le haut)
+    ctx.strokeStyle='rgba(255,255,255,0.30)';ctx.lineWidth=0.8;
+    ctx.beginPath();ctx.moveTo(x+12,stageTop+6);ctx.lineTo(x+12,stageTop+stageH-4);ctx.stroke();
+    outlineText('↑ fond',x+12,stageTop+4,'rgba(255,255,255,0.55)','7px sans-serif','center');
+
+    // Cochonnet
+    ctx.beginPath();ctx.arc(jackScreenX,jackScreenY,5,0,Math.PI*2);
+    ctx.fillStyle='#FFE600';ctx.fill();ctx.strokeStyle='#111';ctx.lineWidth=1;ctx.stroke();
+
+    // Boules (plus loin = dessinée en premier = dessous)
+    const ranked=[...withOffsets];
+    for(let rank=ranked.length-1;rank>=0;rank--){
+      const o=ranked[rank];
+      // dxCm → horizontal, dyCm positif = vers le fond = vers le haut de la vue
+      const bx=jackScreenX+o.dxCm*K;
+      const by=jackScreenY-o.dyCm*K; // inversé : wy grand → sy petit (haut)
+      if(rank===0){
+        ctx.strokeStyle='rgba(0,0,0,0.40)';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(jackScreenX,jackScreenY);ctx.lineTo(bx,by);ctx.stroke();
+      }
+      const r=rank===0?8:rank===1?6.5:5.5;
+      ctx.globalAlpha=rank===0?1:rank===1?0.85:0.7;
+      ctx.beginPath();ctx.arc(bx,by,r,0,Math.PI*2);
+      ctx.fillStyle=COLORS[o.ball.player].fill;ctx.fill();
+      ctx.strokeStyle=COLORS[o.ball.player].stroke;ctx.lineWidth=1.3;ctx.stroke();
+      ctx.globalAlpha=1;
+      outlineText(String(rank+1),bx,by+3.5,'#fff','bold 8px sans-serif','center');
+    }
+
+    // Légende distances
+    const legendY=y+h-11,seg=w/withOffsets.length;
+    withOffsets.forEach((o,i)=>{
+      const lx=x+seg*i+seg/2;
+      outlineText('①②③'[i]+' '+o.distCm+'cm',lx,legendY,'#fff','bold 9px sans-serif','center');
+    });
+    ctx.restore();
   }
 
   function draw(){
@@ -1455,15 +1589,6 @@ Touz & Roll,0.8,0.8,0.8`;
     }
 
     const lead=leadInfo();
-    if(lead){
-      const jp=project(jack.x,jack.y,0),sc=scaleAt(jack.y);
-      const t=jack.y/WORLD_H,halfW=(P.wNear+(P.wFar-P.wNear)*t)/2;
-      const rx=lead.distPx*(halfW/(WORLD_W/2))*sc,ry=rx*0.28;
-      ctx.strokeStyle=COLORS[lead.player].fill+'88';ctx.lineWidth=1;ctx.setLineDash([3,4]);
-      ctx.beginPath();ctx.ellipse(jp.sx,jp.sy,rx,ry,0,0,Math.PI*2);ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
     const jp=project(jack.x,jack.y,0),jsc=scaleAt(jack.y);
     ctx.beginPath();ctx.arc(jp.sx,jp.sy,JR_BASE*jsc,0,Math.PI*2);
     ctx.fillStyle='#FFE600';ctx.fill();
@@ -1477,7 +1602,7 @@ Touz & Roll,0.8,0.8,0.8`;
     for(const b of sorted){
       if(b.phase==='flying'||!b.active)continue;
       drawBallAt(b.x,b.y,0,BR_BASE,b.player,false,1);
-      const d=dist2(b,jack),cm=Math.round(d/SCALE*100),p=project(b.x,b.y,0),sc=scaleAt(b.y);
+      const d=dist2(b,jack),cm=Math.round(Math.max(0,d-BALL_R_COL-JACK_R_COL)/SCALE*100),p=project(b.x,b.y,0),sc=scaleAt(b.y);
       outlineText(cm+'cm',p.sx,p.sy-BR_BASE*sc-3,'white',Math.round(9*sc)+'px sans-serif','center');
     }
     for(const b of sorted){
@@ -1523,7 +1648,8 @@ Touz & Roll,0.8,0.8,0.8`;
         ctx.fillText(line2,SW/2,SH/2+(hasNext?14:18));
       }
     }
-    drawLeadPanel(lead);
+    const panelRect=drawLeadPanel(lead);
+    drawClosestBallRefCam(closestBallsToJack(3),panelRect);
   }
 
   function syncEndArb(){
