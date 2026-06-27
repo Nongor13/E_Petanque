@@ -400,7 +400,7 @@ margin-top:12px;
 
 <!-- ══ OVERLAY CLASSEMENT ══ -->
 <div id="screen-classement" style="display:none;position:absolute;inset:0;z-index:60;background:rgba(8,12,20,0.97);flex-direction:column;align-items:center;justify-content:flex-start;gap:12px;border-radius:6px;font-family:'Press Start 2P',monospace;text-align:center;padding:18px 14px;overflow-y:auto;">
-  <div style="font-size:13px;color:#ffe87a;letter-spacing:2px;text-shadow:2px 2px #000;">🏆 CLASSEMENT</div>
+  <div id="classement-title" style="font-size:13px;color:#ffe87a;letter-spacing:2px;text-shadow:2px 2px #000;">🏆 CLASSEMENT</div>
   <div id="classement-body" style="width:100%;max-width:340px;font-size:9px;color:#ddd;"></div>
   <button onclick="closeClassement()" style="font-family:'Press Start 2P',monospace;font-size:10px;padding:10px 20px;background:#c8a020;color:#1a0e00;border:3px solid #ffe87a;cursor:pointer;letter-spacing:1px;box-shadow:4px 4px 0 #5a3a00;margin-top:6px;">↩ Retour</button>
 </div>
@@ -428,8 +428,24 @@ margin-top:12px;
 
   <!-- Niveau 1 : Solo / Multijoueur -->
   <div id="menu-niveau1" style="display:flex;flex-direction:column;gap:16px;align-items:center;">
-    <button class="sel-btn" id="btn-solo" onclick="selectMenuSolo()">🎮 Jeu Solo</button>
+    <button class="sel-btn" id="btn-solo" onclick="showSubMenuSolo()">🎮 Jeu Solo</button>
     <button class="sel-btn" id="btn-multi" onclick="showSubMenuMulti()">👥 Jeu Multijoueur</button>
+  </div>
+
+  <!-- Niveau 2 SOLO : Machine / Challenge (masqué par défaut) -->
+  <div id="menu-solo" style="display:none;flex-direction:column;gap:16px;align-items:center;">
+    <!-- Identité joueur (même pseudo que le multi) -->
+    <div id="pseudo-row-solo" style="display:flex;flex-direction:column;gap:6px;align-items:center;width:300px;">
+      <div style="font-size:8px;color:#888;font-family:'Press Start 2P',monospace;">▸ Ton pseudo (records)</div>
+      <div style="display:flex;gap:8px;align-items:center;width:100%;justify-content:center;">
+        <span id="pseudo-display-solo" style="font-size:13px;color:#ffe87a;font-family:'Press Start 2P',monospace;background:#111;padding:8px 14px;border:2px solid #c8a020;border-radius:4px;letter-spacing:2px;min-width:120px;text-align:center;">—</span>
+        <button onclick="openPseudoEdit()" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 10px;cursor:pointer;">✏️ Changer</button>
+      </div>
+    </div>
+    <button class="sel-btn" id="btn-pvc2" onclick="selectMenuSolo()">🤖 Contre la Machine</button>
+    <button class="sel-btn" id="btn-challenge" onclick="selectMode('challenge')">🎯 Challenge tireur d'élite<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">touche la boule rouge !</span></button>
+    <button class="sel-btn" id="btn-challenge-classement" onclick="openChallengeClassement()">🏅 Records Challenge</button>
+    <button onclick="showMainMenu()" style="font-size:9px;font-family:'Press Start 2P',monospace;padding:8px 16px;background:#1a1a30;border:1px solid #555;color:#aaa;cursor:pointer;">← Retour</button>
   </div>
 
   <!-- Niveau 2 : Local / Réseau (masqué par défaut) -->
@@ -601,6 +617,14 @@ margin-top:12px;
 
   let state,mouse,charge,chargeDir,balls,jack,raf;
   let cur,boules,scoreTotal;
+  // ── Mode Challenge tireur d'élite ──
+  let chStreak=0;        // série de manches réussies en cours
+  let chLevel=1;         // niveau de difficulté courant (= chStreak+1)
+  let chTarget=null;     // boule rouge cible {x,y,...}
+  let chObstacles=[];    // boules bleues obstacles {x,y,...}
+  let chHit=false;       // la cible a-t-elle été touchée dans la manche
+  let chResult=null;     // 'win' | 'lose' | null (pour le bandeau de fin)
+  let chSendStatus=null; // null | 'sending' | 'ok' | 'fail' (envoi du score)
   let gameMode='pvp';
   let teamNames={1:'Équipe 1',2:'Équipe 2'};
   let netPseudos={1:'',2:''}; // pseudos des joueurs en réseau (pour le classement)
@@ -988,11 +1012,15 @@ margin-top:12px;
   }
   let lastWinner=0; // équipe qui lance en premier à la prochaine manche
 
-  function updateScore(){document.getElementById('sc').textContent=scoreTotal[1]+' – '+scoreTotal[2];}
+  function updateScore(){
+    if(gameMode==='challenge'){document.getElementById('sc').textContent='Série '+chStreak;return;}
+    document.getElementById('sc').textContent=scoreTotal[1]+' – '+scoreTotal[2];
+  }
   function setMsg(t){document.getElementById('msg').textContent=t;}
   function updateMsg(){
     document.getElementById('p1b').textContent=boules[1];
     document.getElementById('p2b').textContent=boules[2];
+    if(gameMode==='challenge'){updateChallengeMsg();return;}
     const leader=whosLeading();
     if(gameMode==='pvc'&&cur===2){setMsg('La Machine réfléchit…');return;}
     if(gameMode==='pvr'){
@@ -1042,8 +1070,153 @@ margin-top:12px;
   };
 
   // ═══════════════════════════════════════════════════════
-  //  ÉCRAN SÉLECTION & ÉQUIPES
+  //  MODE CHALLENGE TIREUR D'ÉLITE
   // ═══════════════════════════════════════════════════════
+  const CH_BEST_KEY='petanque_challenge_best';
+  function chGetBest(){try{return parseInt(localStorage.getItem(CH_BEST_KEY))||0;}catch(e){return 0;}}
+  function chSetBest(n){try{localStorage.setItem(CH_BEST_KEY,String(n));}catch(e){}}
+
+  // Position de la cible selon le niveau de difficulté.
+  // Plus le niveau monte : la cible s'éloigne (y croissant) et se décale
+  // latéralement de façon plus marquée.
+  function chTargetPos(level){
+    // Distance : de ~6 m (niveau 1) jusqu'à ~13 m, saturée au niveau 20.
+    // (Au-delà du niveau 20, la difficulté passe par les obstacles.)
+    const yMin=6*SCALE, yMax=13*SCALE;
+    const t=Math.min(1,(level-1)/19); // saturation au niveau 20
+    const y=yMin+(yMax-yMin)*t;
+    // Décalage latéral : amplitude croissante, direction aléatoire
+    const maxOff=Math.min(1.6*SCALE, (0.3+1.3*t)*SCALE);
+    const off=(Math.random()*2-1)*maxOff;
+    let x=WORLD_W/2+off;
+    x=Math.max(0.7*SCALE,Math.min(WORLD_W-0.7*SCALE,x));
+    return{x,y};
+  }
+
+  // Nombre d'obstacles selon le niveau :
+  //   < 21 : aucun
+  //   21–29 : 1 obstacle (qui se rapproche de la cible avec le niveau)
+  //   30–39 : 2 · 40–49 : 3 · puis +1 tous les 10 niveaux
+  function chNumObstacles(level){
+    if(level<21)return 0;
+    if(level<30)return 1;
+    return 2+Math.floor((level-30)/10);
+  }
+
+  // Fraction de l'axe joueur→cible où se place l'obstacle le plus avancé
+  // (proche de la cible). Démarre loin de la cible (~0.45) puis s'en rapproche.
+  function chLeadFraction(level){
+    if(level<21)return 0;
+    const t=Math.min(1,(level-21)/29); // saturation vers le niveau 50
+    return 0.45+(0.80-0.45)*t;          // de 0.45 (loin) à 0.80 (proche cible)
+  }
+
+  // Construit les obstacles bleus alignés sur l'axe joueur→cible.
+  function chBuildObstacles(level,target){
+    const n=chNumObstacles(level);
+    const arr=[];
+    if(n<=0)return arr;
+    const lead=chLeadFraction(level);
+    const gap=0.12; // écart entre obstacles le long de l'axe
+    for(let i=0;i<n;i++){
+      let frac=lead-i*gap;
+      frac=Math.max(0.30,Math.min(0.82,frac)); // jamais sur le joueur ni la cible
+      const ox=ORIGIN.x+(target.x-ORIGIN.x)*frac;
+      const oy=ORIGIN.y+(target.y-ORIGIN.y)*frac;
+      arr.push({
+        x:Math.max(0.6*SCALE,Math.min(WORLD_W-0.6*SCALE,ox)),
+        y:oy,z:0,vx:0,vy:0,vz:0,
+        mass:1.8,          // lourd → peu mobile, mais < 2 pour garder un vrai rebond
+        phase:'rolling',active:true,isObstacle:true
+      });
+    }
+    return arr;
+  }
+
+  window.startChallenge=function(){
+    gameMode='challenge';
+    chStreak=0;chLevel=1;chResult=null;
+    document.getElementById('p1name').textContent='TIREUR';
+    document.getElementById('p2name').textContent='CIBLE';
+    document.getElementById('screen-splash').style.display='none';
+    document.getElementById('screen-select').style.display='none';
+    document.getElementById('rules-hint').style.display='flex';
+    document.getElementById('screen-rules').style.display='flex';
+    document.body.classList.add('in-game');
+    scoreTotal={1:0,2:0};
+    challengeNewManche();
+    adjustCanvas();setTimeout(adjustCanvas,300);
+  };
+
+  // Démarre une nouvelle manche de challenge (au niveau chLevel courant)
+  window.challengeNewManche=function(){
+    if(raf)cancelAnimationFrame(raf);
+    state='aim';mouse={x:SW/2,y:SH*0.55};charge=0;chargeDir=1;
+    heightLevel=0.15;
+    balls=[];boules={1:2,2:0};cur=1; // 2 boules pour le tireur
+    chHit=false;chResult=null;
+    const pos=chTargetPos(chLevel);
+    chTarget={x:pos.x,y:pos.y,z:0,vx:0,vy:0,vz:0,mass:1.2,phase:'rolling',active:true,isTarget:true};
+    chObstacles=chBuildObstacles(chLevel,chTarget);
+    // Le "jack" interne pointe sur la cible (réutilise l'affichage des distances)
+    jack={x:pos.x,y:pos.y,z:0,vx:0,vy:0,vz:0,mass:2.8,phase:'rolling',active:false};
+    updateScore();updateChallengeMsg();loop();
+  };
+
+  function updateChallengeMsg(){
+    const best=chGetBest();
+    setMsg('🎯 Niveau '+chLevel+'  ·  Série : '+chStreak+'  ·  Record : '+best+'   —   Touche la boule rouge !');
+  }
+
+  // Vérifie le contact boules-cible (appelé pendant la simulation au sol)
+  function chCheckHit(){
+    if(!chTarget)return;
+    for(const b of balls){
+      if(!b.active)continue;
+      const dx=b.x-chTarget.x, dy=b.y-chTarget.y;
+      const d=Math.sqrt(dx*dx+dy*dy);
+      if(d <= BALL_R_COL+effectiveR(chTarget)+0.5){chHit=true;return;}
+    }
+  }
+
+  // Appelé quand les boules s'arrêtent : soit on conclut, soit on rejoue.
+  function challengeAfterStop(){
+    if(chHit){challengeResolve();return;}          // touché → gagné
+    if(boules[1]>0){                                // raté mais il reste une boule
+      state='aim';updateChallengeMsg();return;
+    }
+    challengeResolve();                             // plus de boule → perdu
+  }
+
+  // Conclut une manche de challenge quand toutes les boules sont arrêtées
+  function challengeResolve(){
+    if(chHit){
+      // Réussite : série +1, niveau +1, record éventuel
+      chStreak++;chLevel++;chResult='win';
+      const best=chGetBest();
+      if(chStreak>best)chSetBest(chStreak);
+      state='ch-win';
+      setMsg('✅ Touché ! Série : '+chStreak+'   —   Espace pour la manche suivante');
+    }else{
+      // Échec : série remise à 0, retour au niveau 1
+      chResult='lose';
+      const ended=chStreak;
+      state='ch-lose';
+      setMsg('❌ Manqué ! Série terminée à '+ended+'   —   Espace pour recommencer');
+      chStreak=0;chLevel=1;
+      // Envoi du score (séries ≥ 1 seulement), au mieux, sans bloquer
+      if(ended>=1){
+        chSendStatus='sending';
+        const pseudo=(getPseudo()||'?').slice(0,10);
+        supabaseInsertChallenge(pseudo,ended)
+          .then(()=>{chSendStatus='ok';})
+          .catch(()=>{chSendStatus='fail';});
+      }else{
+        chSendStatus=null;
+      }
+    }
+  }
+
   const EQUIPES_CSV=`nom,analyse,tir,pointage
 USLPLP,0.8,0.8,0.8
 LEG,0.8,0.5,0.8
@@ -1128,10 +1301,17 @@ Touz & Roll,0.8,0.8,0.8`;
   window.selectAiTab=selectAiTab;
 
   // ── Navigation menu à 2 niveaux ──────────────────────────
+  window.showSubMenuSolo=function(){
+    document.getElementById('menu-niveau1').style.display='none';
+    document.getElementById('menu-solo').style.display='flex';
+    refreshPseudoDisplay();
+  };
+
   window.selectMenuSolo=function(){
-    // Jeu Solo = PvC : on affiche directement la config sans passer par le niveau 2
+    // « Contre la Machine » = PvC : on affiche la config
     document.getElementById('menu-niveau1').style.display='none';
     document.getElementById('menu-niveau2').style.display='none';
+    document.getElementById('menu-solo').style.display='none';
     selectMode('pvc');
   };
 
@@ -1148,6 +1328,7 @@ Touz & Roll,0.8,0.8,0.8`;
   window.showMainMenu=function(){
     document.getElementById('menu-niveau1').style.display='flex';
     document.getElementById('menu-niveau2').style.display='none';
+    document.getElementById('menu-solo').style.display='none';
     // Désactiver les boutons de mode et cacher les panneaux spécifiques
     document.getElementById('btn-pvp').classList.remove('active');
     document.getElementById('btn-pvr').classList.remove('active');
@@ -1208,6 +1389,27 @@ Touz & Roll,0.8,0.8,0.8`;
     });
   }
 
+  // Enregistre un score de série (mode challenge)
+  function supabaseInsertChallenge(pseudo,score){
+    return fetch(SUPABASE_URL+'/rest/v1/challenge_scores',{
+      method:'POST',
+      headers:Object.assign({},SUPABASE_HEADERS,{'Prefer':'return=minimal'}),
+      body:JSON.stringify({pseudo:pseudo,score:score})
+    }).then(r=>{
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return true;
+    });
+  }
+  // Récupère tous les scores de challenge (pour agréger les records)
+  function supabaseFetchChallenge(){
+    return fetch(SUPABASE_URL+'/rest/v1/challenge_scores?select=pseudo,score',{
+      headers:SUPABASE_HEADERS
+    }).then(r=>{
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.json();
+    });
+  }
+
   // ═══════════════════════════════════════════════════════
   //  PSEUDO (identité au classement) — stocké localement
   // ═══════════════════════════════════════════════════════
@@ -1219,8 +1421,11 @@ Touz & Roll,0.8,0.8,0.8`;
     try{localStorage.setItem(PSEUDO_KEY,p);}catch(e){}
   }
   function refreshPseudoDisplay(){
-    const el=document.getElementById('pseudo-display');
-    if(el)el.textContent=getPseudo()||'—';
+    const p=getPseudo()||'—';
+    ['pseudo-display','pseudo-display-solo'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el)el.textContent=p;
+    });
   }
   // editMode true = première saisie obligatoire (pas d'annulation, pas de warning)
   window.openPseudoEdit=function(firstTime){
@@ -1234,12 +1439,14 @@ Touz & Roll,0.8,0.8,0.8`;
   window.closePseudoEdit=function(){
     document.getElementById('screen-pseudo').style.display='none';
   };
+  let pseudoPendingAction=null; // action à exécuter après validation du pseudo
   window.validatePseudo=function(){
     let v=document.getElementById('pseudo-input').value.trim().slice(0,10);
     if(!v){document.getElementById('pseudo-input').focus();return;}
     setPseudo(v);
     refreshPseudoDisplay();
     document.getElementById('screen-pseudo').style.display='none';
+    if(pseudoPendingAction){const a=pseudoPendingAction;pseudoPendingAction=null;a();}
   };
 
   // ═══════════════════════════════════════════════════════
@@ -1297,6 +1504,7 @@ Touz & Roll,0.8,0.8,0.8`;
   // ═══════════════════════════════════════════════════════
   window.openClassement=function(){
     const body=document.getElementById('classement-body');
+    document.getElementById('classement-title').textContent='🏆 CLASSEMENT';
     document.getElementById('screen-classement').style.display='flex';
     body.innerHTML='<div style="padding:20px;color:#aaa;">Chargement…</div>';
     supabaseFetchParties().then(rows=>{
@@ -1308,6 +1516,48 @@ Touz & Roll,0.8,0.8,0.8`;
   window.closeClassement=function(){
     document.getElementById('screen-classement').style.display='none';
   };
+
+  // Classement des records de série (mode challenge)
+  window.openChallengeClassement=function(){
+    const body=document.getElementById('classement-body');
+    document.getElementById('classement-title').textContent='🏅 RECORDS CHALLENGE';
+    document.getElementById('screen-classement').style.display='flex';
+    body.innerHTML='<div style="padding:20px;color:#aaa;">Chargement…</div>';
+    supabaseFetchChallenge().then(rows=>{
+      renderChallengeClassement(rows);
+    }).catch(err=>{
+      body.innerHTML='<div style="padding:20px;color:#e0a030;line-height:1.8;">⚠ Impossible de charger les records.<br>Vérifie ta connexion.</div>';
+    });
+  };
+  function renderChallengeClassement(rows){
+    const body=document.getElementById('classement-body');
+    // Meilleur score par pseudo
+    const best={};
+    rows.forEach(r=>{
+      if(!r.pseudo)return;
+      const s=parseInt(r.score)||0;
+      if(best[r.pseudo]===undefined||s>best[r.pseudo])best[r.pseudo]=s;
+    });
+    const list=Object.keys(best).map(p=>({pseudo:p,score:best[p]}))
+      .sort((a,b)=>b.score-a.score||a.pseudo.localeCompare(b.pseudo));
+    if(!list.length){
+      body.innerHTML='<div style="padding:20px;color:#aaa;line-height:1.8;">Aucun record enregistré<br>pour l\'instant.</div>';
+      return;
+    }
+    let html='<table style="width:100%;border-collapse:collapse;font-family:\'Press Start 2P\',monospace;">';
+    html+='<tr style="color:#ffe87a;font-size:8px;"><th style="text-align:left;padding:6px 4px;">#</th><th style="text-align:left;padding:6px 4px;">PSEUDO</th><th style="padding:6px 4px;">SÉRIE</th></tr>';
+    list.forEach((s,i)=>{
+      const bg=i%2?'rgba(255,255,255,0.04)':'transparent';
+      const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+      html+='<tr style="background:'+bg+';font-size:9px;color:#ddd;">'
+        +'<td style="padding:6px 4px;text-align:left;">'+medal+'</td>'
+        +'<td style="padding:6px 4px;text-align:left;color:#ffe87a;">'+escapeHtml(s.pseudo)+'</td>'
+        +'<td style="padding:6px 4px;text-align:center;color:#7dca7d;">'+s.score+'</td>'
+        +'</tr>';
+    });
+    html+='</table>';
+    body.innerHTML=html;
+  }
   function renderClassement(rows){
     const body=document.getElementById('classement-body');
     // Agrégation par pseudo : victoires (gagnant) et défaites (perdant)
@@ -1344,6 +1594,20 @@ Touz & Roll,0.8,0.8,0.8`;
 
   window.selectMode=function(m){
     gameMode=m;
+    if(m==='challenge'){
+      // Démarrage direct du mode challenge (pas de config d'équipe/réseau)
+      document.getElementById('menu-niveau1').style.display='none';
+      document.getElementById('menu-niveau2').style.display='none';
+      document.getElementById('menu-solo').style.display='none';
+      // Un pseudo est requis (identité au classement des records)
+      if(!getPseudo()){
+        pseudoPendingAction=startChallenge;
+        openPseudoEdit(true);
+        return;
+      }
+      startChallenge();
+      return;
+    }
     document.getElementById('btn-pvp').classList.toggle('active',m==='pvp');
     document.getElementById('btn-pvc').classList.toggle('active',m==='pvc');
     document.getElementById('btn-pvr').classList.toggle('active',m==='pvr');
@@ -1453,6 +1717,20 @@ Touz & Roll,0.8,0.8,0.8`;
     canvas.width=SW;canvas.height=SH;
     ctx.setTransform(1,0,0,1,0,0);
   }
+  // Ajuste le canvas selon le contexte : plein écran, paysage mobile (hors plein
+  // écran), ou bureau. Sûr à appeler à tout moment (notamment côté guest réseau,
+  // où le plein écran auto serait refusé car déclenché hors geste utilisateur).
+  function adjustCanvas(){
+    const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
+    if(fsEl){fitCanvasFullscreen();return;}
+    // Hors plein écran : si on est sur un petit écran en paysage, on agrandit le
+    // canvas pour remplir l'espace dispo (même logique que le plein écran).
+    const smallLandscape=window.matchMedia('(orientation:landscape) and (max-height:560px)').matches;
+    if(smallLandscape){fitCanvasFullscreen();return;}
+    // Sinon (bureau ou portrait) : taille par défaut.
+    resetCanvasDefault();
+  }
+  window.adjustCanvas=adjustCanvas;
   window.fitCanvasFullscreen=fitCanvasFullscreen;
   window.resetCanvasDefault=resetCanvasDefault;
   document.addEventListener('fullscreenchange',()=>{
@@ -1467,7 +1745,13 @@ Touz & Roll,0.8,0.8,0.8`;
     if(fsEl){fitCanvasFullscreen();setTimeout(fitCanvasFullscreen,250);}else resetCanvasDefault();
   });
   window.addEventListener('resize',()=>{
-    if(document.fullscreenElement||document.webkitFullscreenElement)fitCanvasFullscreen();
+    if(document.fullscreenElement||document.webkitFullscreenElement){fitCanvasFullscreen();}
+    else if(document.body.classList.contains('in-game')){adjustCanvas();}
+  });
+  window.addEventListener('orientationchange',()=>{
+    if(document.body.classList.contains('in-game')){
+      adjustCanvas();setTimeout(adjustCanvas,300);
+    }
   });
 
   window.startGame=function(){
@@ -1526,6 +1810,8 @@ Touz & Roll,0.8,0.8,0.8`;
     // Réinitialise le menu au niveau 1
     document.getElementById('menu-niveau1').style.display='flex';
     document.getElementById('menu-niveau2').style.display='none';
+    document.getElementById('menu-solo').style.display='none';
+    if(gameMode==='challenge')gameMode='pvp'; // sortie du challenge → mode neutre
     document.getElementById('btn-pvp').classList.remove('active');
     document.getElementById('btn-pvr').classList.remove('active');
     document.getElementById('btn-pvc').classList.remove('active');
@@ -1593,6 +1879,7 @@ Touz & Roll,0.8,0.8,0.8`;
     // Touche A : toggle overlay règles (en jeu seulement)
     if(e.key==='a'||e.key==='A'){toggleRules();return;}
     if(e.code!=='Space')return;e.preventDefault();
+    if(state==='ch-win'||state==='ch-lose'){challengeNewManche();return;}
     if(['done','cancelled','match'].includes(state)){
       if(gameMode==='pvr'&&netRole==='guest')return; // guest attend l'hôte
       newManche();return;
@@ -1622,6 +1909,7 @@ Touz & Roll,0.8,0.8,0.8`;
     e.preventDefault();
     const t=e.changedTouches[0];
     setAimFromPoint(t.clientX,t.clientY);
+    if(state==='ch-win'||state==='ch-lose'){challengeNewManche();return;}
     if(['done','cancelled','match'].includes(state)){
       if(gameMode==='pvr'&&netRole==='guest')return;
       newManche();return;
@@ -1676,6 +1964,25 @@ Touz & Roll,0.8,0.8,0.8`;
         updateFlying(b);
         // Élimination immédiate si hors terrain (en vol ou après atterrissage)
         if(!inTerrain(b.x,b.y)){b.active=false;b.vx=0;b.vy=0;b.vz=0;b.phase='rolling';}
+      }
+      if(gameMode==='challenge'){
+        // Cible rouge + obstacles bleus participent aux collisions au sol
+        const bodies=[...balls.filter(b=>b.active&&b.phase==='rolling')];
+        if(chTarget&&chTarget.active)bodies.push(chTarget);
+        for(const o of chObstacles)if(o.active)bodies.push(o);
+        updateGround(bodies);
+        chCheckHit();
+        for(const b of balls){
+          if(b.active&&b.phase==='rolling'&&!inTerrain(b.x,b.y)){b.active=false;b.vx=0;b.vy=0;}
+        }
+        // Un obstacle expulsé du terrain est désactivé (il ne gêne plus)
+        for(const o of chObstacles){
+          if(o.active&&!inTerrain(o.x,o.y)){o.active=false;o.vx=0;o.vy=0;}
+        }
+        if(allStopped([...balls,chTarget,...chObstacles])){
+          if(state==='flying')challengeAfterStop();
+        }
+        return;
       }
       // Seules les boules actives participent aux collisions au sol
       updateGround([...balls.filter(b=>b.active&&b.phase==='rolling'),jack]);
@@ -1951,6 +2258,42 @@ Touz & Roll,0.8,0.8,0.8`;
     }
 
     const lead=leadInfo();
+    if(gameMode==='challenge'){
+      // Obstacles bleus (alignés joueur→cible) — dessinés du fond vers l'avant
+      const obs=[...chObstacles].filter(o=>o.active).sort((a,b)=>b.y-a.y);
+      for(const o of obs){
+        const op=project(o.x,o.y,0),osc=scaleAt(o.y),orad=BR_BASE*osc;
+        // ombre légère
+        ctx.save();ctx.globalAlpha=0.18;
+        ctx.beginPath();ctx.ellipse(op.sx,op.syGnd||op.sy,orad*1.6,orad*0.5,0,0,Math.PI*2);
+        ctx.fillStyle='#000';ctx.fill();ctx.restore();
+        // boule obstacle (bleu foncé, distinct du bleu joueur)
+        ctx.beginPath();ctx.arc(op.sx,op.sy,orad,0,Math.PI*2);
+        ctx.fillStyle='#15309a';ctx.fill();
+        ctx.strokeStyle='#0a1a55';ctx.lineWidth=Math.max(1,2*osc);ctx.stroke();
+        // liseré clair pour le relief
+        ctx.beginPath();ctx.arc(op.sx-orad*0.3,op.sy-orad*0.3,orad*0.26,0,Math.PI*2);
+        ctx.fillStyle='rgba(160,200,255,0.40)';ctx.fill();
+      }
+      // Cible rouge (au lieu du cochonnet jaune)
+      if(chTarget){
+        const tp=project(chTarget.x,chTarget.y,0),tsc=scaleAt(chTarget.y);
+        const tr=BR_BASE*tsc;
+        // halo
+        ctx.beginPath();ctx.arc(tp.sx,tp.sy,tr*1.6,0,Math.PI*2);
+        ctx.fillStyle='rgba(220,40,40,0.18)';ctx.fill();
+        // boule cible
+        ctx.beginPath();ctx.arc(tp.sx,tp.sy,tr,0,Math.PI*2);
+        ctx.fillStyle='#e02020';ctx.fill();
+        ctx.strokeStyle='#7a0000';ctx.lineWidth=Math.max(1,2*tsc);ctx.stroke();
+        // mire
+        ctx.strokeStyle='rgba(255,255,255,0.85)';ctx.lineWidth=Math.max(0.8,1.3*tsc);
+        ctx.beginPath();ctx.moveTo(tp.sx-tr*0.6,tp.sy);ctx.lineTo(tp.sx+tr*0.6,tp.sy);
+        ctx.moveTo(tp.sx,tp.sy-tr*0.6);ctx.lineTo(tp.sx,tp.sy+tr*0.6);ctx.stroke();
+        ctx.beginPath();ctx.arc(tp.sx-tr*0.3,tp.sy-tr*0.3,tr*0.25,0,Math.PI*2);
+        ctx.fillStyle='rgba(255,255,255,0.30)';ctx.fill();
+      }
+    } else {
     const jp=project(jack.x,jack.y,0),jsc=scaleAt(jack.y);
     ctx.beginPath();ctx.arc(jp.sx,jp.sy,JR_BASE*jsc,0,Math.PI*2);
     ctx.fillStyle='#FFE600';ctx.fill();
@@ -1958,13 +2301,15 @@ Touz & Roll,0.8,0.8,0.8`;
     // Reflet
     ctx.beginPath();ctx.arc(jp.sx-JR_BASE*jsc*0.3,jp.sy-JR_BASE*jsc*0.3,JR_BASE*jsc*0.28,0,Math.PI*2);
     ctx.fillStyle='rgba(255,255,255,0.35)';ctx.fill();
+    }
 
     const sorted=[...balls].sort((a,b)=>b.y-a.y);
     for(const b of sorted)if(b.phase==='flying'&&b.active)drawShadow(b.x,b.y,b.z,BR_BASE);
     for(const b of sorted){
       if(b.phase==='flying'||!b.active)continue;
       drawBallAt(b.x,b.y,0,BR_BASE,b.player,false,1);
-      const d=dist2(b,jack),cm=Math.round(Math.max(0,d-BALL_R_COL-JACK_R_COL)/SCALE*100),p=project(b.x,b.y,0),sc=scaleAt(b.y);
+      const ref=(gameMode==='challenge'&&chTarget)?chTarget:jack;
+      const d=dist2(b,ref),cm=Math.round(Math.max(0,d-BALL_R_COL-JACK_R_COL)/SCALE*100),p=project(b.x,b.y,0),sc=scaleAt(b.y);
       outlineText(cm+'cm',p.sx,p.sy-BR_BASE*sc-3,'white',Math.round(9*sc)+'px sans-serif','center');
     }
     for(const b of sorted){
@@ -1981,6 +2326,29 @@ Touz & Roll,0.8,0.8,0.8`;
       ctx.fillStyle='#1a1a1a';rrect(gx,gy,gw,gh,3);ctx.fill();
       ctx.fillStyle='hsl('+Math.round(120-charge*120)+',80%,50%)';rrect(gx,gy,gw*charge,gh,3);ctx.fill();
       ctx.font='bold 10px sans-serif';ctx.fillStyle='white';ctx.textAlign='center';ctx.fillText('PUISSANCE',SW/2,gy+10);
+    }
+    if(state==='ch-win'||state==='ch-lose'){
+      const bandH=88;
+      ctx.fillStyle='rgba(0,0,0,0.72)';ctx.fillRect(0,SH/2-bandH/2,SW,bandH);
+      ctx.textAlign='center';
+      let line1,line2;
+      if(state==='ch-win'){
+        line1='✅ TOUCHÉ !  Série : '+chStreak;
+        line2='Niveau '+chLevel+'  ·  Espace pour la manche suivante';
+        ctx.fillStyle='#7dca7d';
+      }else{
+        line1='❌ MANQUÉ !';
+        let envoi='';
+        if(chSendStatus==='sending')envoi='  ·  💾…';
+        else if(chSendStatus==='ok')envoi='  ·  ✓ enregistré';
+        else if(chSendStatus==='fail')envoi='  ·  ⚠ hors-ligne';
+        line2='Record : '+chGetBest()+envoi+'  ·  Espace pour recommencer';
+        ctx.fillStyle='#e08080';
+      }
+      ctx.font='bold 18px sans-serif';
+      ctx.fillText(line1,SW/2,SH/2-10);
+      ctx.font='13px sans-serif';ctx.fillStyle='rgba(255,255,255,0.78)';
+      ctx.fillText(line2,SW/2,SH/2+16);
     }
     if(['done','cancelled','match'].includes(state)){
       const hasNext=['done','cancelled','match'].includes(state);
@@ -2014,8 +2382,10 @@ Touz & Roll,0.8,0.8,0.8`;
         ctx.fillText(line2,SW/2,SH/2+(hasNext?14:18));
       }
     }
-    const panelRect=drawLeadPanel(lead);
-    drawClosestBallRefCam(closestBallsToJack(3),panelRect);
+    if(gameMode!=='challenge'){
+      const panelRect=drawLeadPanel(lead);
+      drawClosestBallRefCam(closestBallsToJack(3),panelRect);
+    }
   }
 
   function syncEndArb(){
@@ -2117,6 +2487,9 @@ Touz & Roll,0.8,0.8,0.8`;
           document.getElementById('screen-select').style.display='none';
           document.getElementById('rules-hint').style.display='flex';
           document.getElementById('screen-rules').style.display='flex';
+          // Sur mobile, le canvas doit être dimensionné même hors plein écran
+          // (le callback réseau n'est pas un geste utilisateur → requestFullscreen
+          //  serait refusé ici). On force donc un ajustement du canvas.
           document.body.classList.add('in-game');
           scoreTotal={1:0,2:0};
           balls=[];jack={x:WORLD_W/2,y:WORLD_H/2,z:0,vx:0,vy:0,vz:0,mass:2.8,phase:'rolling',active:true};
@@ -2124,6 +2497,7 @@ Touz & Roll,0.8,0.8,0.8`;
           updateScore();
           setMsg('⏳ En attente de la partie…');
           if(!raf)loop();
+          adjustCanvas();setTimeout(adjustCanvas,300);
         });
         netConn.on('error',e=>document.getElementById('net-join-status').textContent='Erreur: '+e);
       });
