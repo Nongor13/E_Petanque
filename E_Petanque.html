@@ -60,6 +60,7 @@
   }
   #screen-rotate .ic{font-size:42px;animation:rotate-bob 1.6s ease-in-out infinite;}
   @keyframes rotate-bob{0%,100%{transform:rotate(0deg);}50%{transform:rotate(90deg);}}
+  @keyframes dlgblink{0%{opacity:1;}50%{opacity:0.25;}100%{opacity:1;}}
   #screen-rotate small{color:#aaa;font-size:9px;letter-spacing:0;}
   #btn-force-fs{
     margin-top:10px;font-family:'Press Start 2P',monospace;font-size:10px;
@@ -316,6 +317,11 @@ margin-top:12px;
 <audio id="bgm" loop preload="auto">
   <source src="https://nongor13.github.io/son_ambiance/Son_Flash.mp3" type="audio/mpeg">
 </audio>
+<!-- Musiques de campagne -->
+<audio id="snd-intro"   loop preload="auto" src="https://nongor13.github.io/son_ambiance/Start_level_music.mp3"></audio>
+<audio id="snd-stress"  loop preload="auto" src="https://nongor13.github.io/son_ambiance/Stress_music.mp3"></audio>
+<audio id="snd-victory"      preload="auto" src="https://nongor13.github.io/son_ambiance/Victory_music.mp3"></audio>
+<audio id="snd-defeat"       preload="auto" src="https://nongor13.github.io/son_ambiance/Defeat_music.mp3"></audio>
 
 <div id="game-shell">
 <div class="side-panel" id="side-left">
@@ -387,6 +393,25 @@ margin-top:12px;
   <button onclick="discoReturnMenu()" style="font-family:'Press Start 2P',monospace;font-size:10px;padding:12px 20px;background:#c8a020;color:#1a0e00;border:3px solid #ffe87a;cursor:pointer;letter-spacing:1px;box-shadow:4px 4px 0 #5a3a00;margin-top:8px;">↩ Retour au menu</button>
 </div>
 
+<!-- ══ BOÎTE DE DIALOGUE RPG (rival USLPLP) ══ -->
+<div id="dialogue-overlay" style="display:none;position:absolute;inset:0;z-index:65;cursor:pointer;align-items:flex-end;justify-content:center;" onclick="advanceDialogue()">
+  <div id="dialogue-box" style="width:92%;max-width:560px;margin-bottom:14px;background:linear-gradient(180deg,#10203a,#0a1424);border:3px solid #ffe87a;border-radius:8px;box-shadow:0 6px 0 rgba(0,0,0,0.5),inset 0 0 0 2px #1a3a6a;padding:14px 16px;font-family:'Press Start 2P',monospace;">
+    <div id="dialogue-author" style="font-size:11px;color:#7ec8ff;letter-spacing:1px;margin-bottom:10px;text-shadow:1px 1px #000;"></div>
+    <div id="dialogue-text" style="font-size:11px;color:#fff;line-height:1.9;min-height:48px;text-shadow:1px 1px #000;"></div>
+    <div id="dialogue-next" style="font-size:9px;color:#ffe87a;text-align:right;margin-top:6px;animation:dlgblink 1s steps(2) infinite;">▼ clic pour continuer</div>
+  </div>
+</div>
+
+<!-- ══ ÉCRAN D'ANNONCE DE MATCH (campagne) ══ -->
+<div id="screen-versus" style="display:none;position:absolute;inset:0;z-index:66;background:radial-gradient(circle at 50% 35%,#1a2f55,#070d18 75%);flex-direction:column;align-items:center;justify-content:center;gap:18px;border-radius:6px;font-family:'Press Start 2P',monospace;text-align:center;padding:24px;">
+  <div id="versus-level" style="font-size:13px;color:#7ec8ff;letter-spacing:4px;text-shadow:2px 2px #000;">NIVEAU 1</div>
+  <div id="versus-name" style="font-size:22px;color:#ffe87a;letter-spacing:1px;line-height:1.4;text-shadow:3px 3px #000;max-width:90%;"></div>
+  <div style="width:60%;max-width:280px;height:3px;background:linear-gradient(90deg,transparent,#c8a020,transparent);margin:4px 0;"></div>
+  <div id="versus-sub" style="font-size:11px;color:#dcdcff;letter-spacing:1px;text-shadow:1px 1px #000;">Prêt pour le match ?</div>
+  <button onclick="versusGo()" style="font-family:'Press Start 2P',monospace;font-size:13px;padding:14px 28px;background:#c8a020;color:#1a0e00;border:3px solid #ffe87a;cursor:pointer;letter-spacing:1px;box-shadow:4px 4px 0 #5a3a00;margin-top:8px;">⚔ COMBATTRE</button>
+  <button onclick="versusQuit()" style="font-family:'Press Start 2P',monospace;font-size:9px;padding:9px 16px;background:#1a1a30;border:1px solid #666;color:#bbb;cursor:pointer;letter-spacing:1px;">↩ Quitter la campagne</button>
+</div>
+
 <!-- ══ OVERLAY SAISIE PSEUDO ══ -->
 <div id="screen-pseudo" style="display:none;position:absolute;inset:0;z-index:60;background:rgba(8,12,20,0.97);flex-direction:column;align-items:center;justify-content:center;gap:16px;border-radius:6px;font-family:'Press Start 2P',monospace;text-align:center;padding:20px;">
   <div style="font-size:13px;color:#ffe87a;letter-spacing:2px;text-shadow:2px 2px #000;">TON PSEUDO</div>
@@ -442,10 +467,33 @@ margin-top:12px;
         <button onclick="openPseudoEdit()" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 10px;cursor:pointer;">✏️ Changer</button>
       </div>
     </div>
-    <button class="sel-btn" id="btn-pvc2" onclick="selectMenuSolo()">🤖 Contre la Machine</button>
-    <button class="sel-btn" id="btn-challenge" onclick="selectMode('challenge')">🎯 Challenge tireur d'élite<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">touche la boule rouge !</span></button>
-    <button class="sel-btn" id="btn-challenge-classement" onclick="openChallengeClassement()">🏅 Records Challenge</button>
+    <button class="sel-btn" id="btn-pvc2" onclick="selectMenuSolo()">⚡ Partie rapide</button>
+    <button class="sel-btn" id="btn-campagne" onclick="openCampagneMenu()">🏆 Campagne<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">bats toutes les équipes !</span></button>
+    <button class="sel-btn" id="btn-challenge-menu" onclick="openChallengeMenu()">🎯 Challenge Tir<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">touche la boule rouge !</span></button>
     <button onclick="showMainMenu()" style="font-size:9px;font-family:'Press Start 2P',monospace;padding:8px 16px;background:#1a1a30;border:1px solid #555;color:#aaa;cursor:pointer;">← Retour</button>
+  </div>
+
+  <!-- Sous-menu Challenge Tir : lancer + records -->
+  <div id="menu-challenge" style="display:none;flex-direction:column;gap:16px;align-items:center;">
+    <div style="font-size:12px;color:#ffe87a;font-family:'Press Start 2P',monospace;letter-spacing:2px;text-shadow:2px 2px #000;">🎯 CHALLENGE TIR</div>
+    <div style="font-size:8px;color:#aaa;font-family:'Press Start 2P',monospace;line-height:1.8;max-width:300px;text-align:center;">Touche la boule rouge.<br>Chaque réussite t'envoie au niveau suivant, de plus en plus dur.</div>
+    <button class="sel-btn" id="btn-challenge" onclick="selectMode('challenge')">🎯 Lancer le Challenge</button>
+    <button class="sel-btn" id="btn-challenge-classement" onclick="openChallengeClassement()">🏅 Records Challenge</button>
+    <button onclick="showSubMenuSolo()" style="font-size:9px;font-family:'Press Start 2P',monospace;padding:8px 16px;background:#1a1a30;border:1px solid #555;color:#aaa;cursor:pointer;">← Retour</button>
+  </div>
+
+  <!-- Sous-menu Campagne : choix du mode + reprise -->
+  <div id="menu-campagne" style="display:none;flex-direction:column;gap:14px;align-items:center;">
+    <div style="font-size:12px;color:#ffe87a;font-family:'Press Start 2P',monospace;letter-spacing:2px;text-shadow:2px 2px #000;">🏆 CAMPAGNE</div>
+    <div id="camp-progress-info" style="font-size:8px;color:#aaa;font-family:'Press Start 2P',monospace;line-height:1.8;max-width:300px;text-align:center;"></div>
+    <button class="sel-btn" id="btn-camp-normal" onclick="startCampagne(false)">▶ Mode Normal<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">on peut perdre sans reculer</span></button>
+    <button class="sel-btn" id="btn-camp-hardcore" onclick="startCampagne(true)">💀 Mode Hardcore<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">une défaite = retour au début</span></button>
+    <button id="btn-camp-reset" onclick="resetCampagneNormal()" style="display:none;font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#3a1a1a;border:1px solid #884444;color:#d0a0a0;cursor:pointer;">↺ Recommencer depuis le début</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+      <button onclick="openCampClassement('normal')" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#1a2a40;border:2px solid #c8a020;color:#ffe87a;cursor:pointer;">🏆 Classement Normal</button>
+      <button onclick="openCampClassement('hardcore')" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#2a1a1a;border:2px solid #c8a020;color:#ffe87a;cursor:pointer;">💀 Classement Hardcore</button>
+    </div>
+    <button onclick="showSubMenuSolo()" style="font-size:9px;font-family:'Press Start 2P',monospace;padding:8px 16px;background:#1a1a30;border:1px solid #555;color:#aaa;cursor:pointer;">← Retour</button>
   </div>
 
   <!-- Niveau 2 : Local / Réseau (masqué par défaut) -->
@@ -467,7 +515,7 @@ margin-top:12px;
   <!-- Bouton PvC caché (activé programmatiquement par Jeu Solo) -->
   <button class="sel-btn" id="btn-pvc" onclick="selectMode('pvc')" style="display:none;"></button>
   <!-- Sélection noms d'équipes -->
-  <div id="team-names" style="display:flex;flex-direction:column;gap:8px;width:300px;">
+  <div id="team-names" style="display:none;flex-direction:column;gap:8px;width:300px;">
     <div style="font-size:18px;color:#888;text-align:center;font-family:'Press Start 2P',monospace;letter-spacing:1px;">▸ Équipes</div>
     <div style="display:flex;gap:8px;align-items:center;">
       <span style="font-size:18px;">🔵</span>
@@ -496,7 +544,8 @@ margin-top:12px;
       <div id="diff-label" style="font-size:9px;color:#aaa;text-align:center;min-height:20px;font-family:'Press Start 2P',monospace;"></div>
     </div>
   </div>
-  <button id="btn-start" onclick="startGame()">▶ LANCER LA PARTIE</button>
+  <button id="btn-start" onclick="startGame()" style="display:none;">▶ LANCER LA PARTIE</button>
+  <button id="btn-config-back" onclick="backFromConfig()" style="display:none;font-size:9px;font-family:'Press Start 2P',monospace;padding:8px 16px;background:#1a1a30;border:1px solid #555;color:#aaa;cursor:pointer;margin-top:4px;">← Retour</button>
 
   <!-- Panneau réseau (mode pvr) -->
   <div id="net-panel" style="display:none;flex-direction:column;gap:10px;width:300px;align-items:center;">
@@ -631,6 +680,16 @@ margin-top:12px;
   function teamLabel(player){return teamNames[player];}
   let aiTirsManche=0; // Garde-fou : max 3 tirs par manche pour l'IA (au-delà elle pointe)
 
+  // ── Mode Campagne solo ──
+  let campIndex=0;        // index de l'équipe en cours d'affrontement
+  let campHardcore=false; // mode hardcore (une défaite = retour à l'équipe 1)
+  let campResult=null;    // 'win' | 'lose' | 'done' (pour le bandeau de fin)
+  let campOrder=[];       // ordre des équipes affrontées (indices dans `equipes`)
+  let campResetSession=false; // true = on vient de réinitialiser, ne pas réadopter le cloud
+  let campJalonShown=false;   // conversation de mi-parcours déjà jouée (run en cours)
+  let campPrebossShown=false; // conversation d'avant-boss déjà jouée (run en cours)
+  let campJalonDone={};       // jalons USLPLP déjà joués ce run (par niveau)
+
   // ── Config IA : stockée en termes terrain (analyse, tir, pointage) ──
   let aiRaw={analyse:0.5,tir:0.5,pointage:0.5};
 
@@ -677,25 +736,53 @@ margin-top:12px;
   }
 
   // ── Physique ─────────────────────────────────────────────
+  const COLLISION_SLOP=0.6; // tolérance de chevauchement (px monde) : en-dessous,
+                            // on ne corrige pas la position (évite les micro-poussées
+                            // « fantômes » entre boules déjà posées au repos)
   function resolveCollision(a,b){
     const dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy);
     const ra=effectiveR(a),rb=effectiveR(b);
     if(d===0||d>=ra+rb)return;
-    const nx=dx/d,ny=dy/d,ov=(ra+rb)-d,tm=a.mass+b.mass;
-    a.x-=nx*ov*(b.mass/tm);a.y-=ny*ov*(b.mass/tm);
-    b.x+=nx*ov*(a.mass/tm);b.y+=ny*ov*(a.mass/tm);
+    const nx=dx/d,ny=dy/d,tm=a.mass+b.mass;
     const dvx=a.vx-b.vx,dvy=a.vy-b.vy,dot=dvx*nx+dvy*ny;
-    if(dot<=0)return;
+    // Vitesses faibles : les deux objets sont quasi au repos l'un par rapport à
+    // l'autre. On ne fait alors RIEN tant que le chevauchement reste sous le seuil
+    // (sinon des boules collées et stables se repousseraient à chaque frame dès
+    //  qu'une autre boule relance la simulation).
+    const speedRel=Math.abs(dvx)+Math.abs(dvy);
+    const ov=(ra+rb)-d;
+    if(speedRel<0.05 && ov<=COLLISION_SLOP) return;
+    // Séparation positionnelle : on ne résorbe que la part de chevauchement qui
+    // dépasse la tolérance, pour ne pas créer de saut visible.
+    const corr=Math.max(0,ov-COLLISION_SLOP);
+    if(corr>0){
+      a.x-=nx*corr*(b.mass/tm);a.y-=ny*corr*(b.mass/tm);
+      b.x+=nx*corr*(a.mass/tm);b.y+=ny*corr*(a.mass/tm);
+    }
+    if(dot<=0)return; // les objets s'éloignent déjà : pas d'impulsion
     // Si l'une des deux entités est le cochonnet : restitution très faible (absorption 90%)
-    const isJackCollision=(a.mass>2||b.mass>2);
+    // Détection du cochonnet via un drapeau explicite (indépendant de la masse,
+    // pour pouvoir alléger le cochonnet sans changer ce comportement) : restitution
+    // faible = il absorbe le choc plutôt que de rebondir comme une boule.
+    const isJackCollision=(a.isJack||b.isJack);
     const restitution=isJackCollision?0.10:REST_BALL;
     const imp=(2*dot*restitution)/tm;
     a.vx-=imp*b.mass*nx;a.vy-=imp*b.mass*ny;
     b.vx+=imp*a.mass*nx;b.vy+=imp*a.mass*ny;
+    // Son d'impact : force ~ vitesse d'approche (dot). Cochonnet = son mat.
+    playImpactSound(dot,isJackCollision?'jack':'ball');
   }
+  const SLEEP_SPEED=0.08; // sous cette vitesse, une boule est considérée arrêtée et figée
   function updateGround(bodies){
     for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++)resolveCollision(bodies[i],bodies[j]);
-    for(const b of bodies){b.x+=b.vx;b.y+=b.vy;const f=b.rollFric||ROLL_FRIC;b.vx*=f;b.vy*=f;}
+    for(const b of bodies){
+      // Une boule trop lente est franchement arrêtée (vitesse remise à zéro) : elle
+      // ne bouge plus tant qu'une collision ne la réveille pas. Évite qu'une vitesse
+      // résiduelle « finisse » son déplacement lors d'un tour suivant.
+      if(Math.abs(b.vx)<SLEEP_SPEED&&Math.abs(b.vy)<SLEEP_SPEED){b.vx=0;b.vy=0;continue;}
+      b.x+=b.vx;b.y+=b.vy;
+      const f=b.rollFric||ROLL_FRIC;b.vx*=f;b.vy*=f;
+    }
   }
   function updateFlying(b){
     b.x+=b.vx;b.y+=b.vy;b.z+=b.vz;b.vz-=G;
@@ -703,6 +790,9 @@ margin-top:12px;
       b.z=0;
       const imp=Math.abs(b.vz);
       const h=b.hNorm;
+      // Son d'atterrissage : « toc » mat dont la force suit la vitesse de chute.
+      // (le cochonnet ne déclenche pas ce son ici car il ne vole pas comme une boule)
+      playImpactSound(imp,'ground');
       // Freinage horizontal à l'impact :
       //   h=0   (roulette) → 0% de frein, conserve tout l'élan
       //   h=0.4 (tendu)    → ~20% de frein, atterrit avec élan, roule loin
@@ -797,12 +887,19 @@ margin-top:12px;
     // Si une boule adverse est à moins de 35 cm du cochonnet : tir quasi-certain
     const THRESHOLD_35CM=0.35*SCALE;
     const oppDangerClose=oppBalls.some(b=>dist2(b,jack)<THRESHOLD_35CM);
+    // Garde-fou universel : tirer une boule située à plus de 1,5 m du cochonnet est
+    // absurde (elle ne menace pas). On n'autorise le tir que si AU MOINS une boule
+    // adverse est à 1,5 m ou moins du cochonnet ; sinon l'IA pointe.
+    const SHOOT_MAX_DIST=1.5*SCALE;
+    const oppShootable=oppBalls.some(b=>dist2(b,jack)<=SHOOT_MAX_DIST);
     const pShoot=oppDangerClose
       ?(0.85+aiRaw.analyse*0.14)
       :oppLeading&&oppBalls.length>0?(0.2+aiRaw.analyse*0.65):(0.05*(1-aiRaw.analyse));
-    if(Math.random()<pShoot){
+    if(oppShootable&&Math.random()<pShoot){
+      // Cible = boule adverse la plus proche du cochonnet, MAIS seulement si elle est
+      // dans le rayon de 1,5 m (on ne tire jamais une boule lointaine).
       let target=null,bestD=Infinity;
-      for(const b of oppBalls){const d=dist2(b,jack);if(d<bestD){bestD=d;target=b;}}
+      for(const b of oppBalls){const d=dist2(b,jack);if(d<bestD&&d<=SHOOT_MAX_DIST){bestD=d;target=b;}}
       if(target)return{action:'shoot',target:{x:target.x,y:target.y}};
     }
     let targetX=jack.x,targetY=jack.y;
@@ -976,9 +1073,13 @@ margin-top:12px;
     if(state==='match'){setMsg('🏆 '+teamLabel(w)+' GAGNE LE MATCH !');onMatchEnded(w);}
     else setMsg('Cochonnet sorti → '+teamLabel(w)+' marque '+pts+' pts  —   Appuyer sur Espace pour la prochaine mène');
   }
+  // États où la manche/le match est conclu : aucun nouveau tour ne doit démarrer.
+  function isRoundLocked(){
+    return ['done','cancelled','match','camp-win','camp-lose','camp-done','ch-win','ch-lose'].includes(state);
+  }
   function nextTurn(){
     checkOOB();
-    if(['done','cancelled','match'].includes(state))return;
+    if(isRoundLocked())return;
     const leader=whosLeading(),opp=leader===0?1:(leader===1?2:1);
     // Cas où toutes les boules sont hors terrain (actives=false) mais comptées 0
     // → si personne ne peut jouer, fin de manche
@@ -995,7 +1096,13 @@ margin-top:12px;
     if(boules[leader]>0) {cur=leader; state='aim';onTurnStart();return;}
     endManche();
   }
-  function onTurnStart(){updateMsg();if(gameMode==='pvc'&&cur===2)aiTurn();}
+  function onTurnStart(){
+    // Réinitialise l'orientation du lancer (évite de rejouer la trajectoire
+    // exacte du tir précédent en gardant la flèche au même endroit).
+    mouse={x:SW/2,y:SH*0.55};
+    updateMsg();
+    if(isAiMode()&&cur===2)aiTurn();
+  }
   function endManche(){
     const{player,pts}=countPoints();
     if(player&&pts>0){
@@ -1015,6 +1122,10 @@ margin-top:12px;
   function updateScore(){
     if(gameMode==='challenge'){document.getElementById('sc').textContent='Série '+chStreak;return;}
     document.getElementById('sc').textContent=scoreTotal[1]+' – '+scoreTotal[2];
+    // Campagne : ambiance stressante dès qu'un joueur atteint 10 points (match en cours)
+    if(gameMode==='campaign'&&!isRoundLocked()&&(scoreTotal[1]>=10||scoreTotal[2]>=10)){
+      campMusicStress();
+    }
   }
   function setMsg(t){document.getElementById('msg').textContent=t;}
   function updateMsg(){
@@ -1022,7 +1133,7 @@ margin-top:12px;
     document.getElementById('p2b').textContent=boules[2];
     if(gameMode==='challenge'){updateChallengeMsg();return;}
     const leader=whosLeading();
-    if(gameMode==='pvc'&&cur===2){setMsg('La Machine réfléchit…');return;}
+    if(isAiMode()&&cur===2){setMsg('La Machine réfléchit…');return;}
     if(gameMode==='pvr'){
       const myP=netRole==='host'?1:2;
       if(cur!==myP){setMsg('⏳ '+teamLabel(cur)+' joue…');return;}
@@ -1058,7 +1169,7 @@ margin-top:12px;
     cur=lastWinner||1;
     const jackX=(1*SCALE)+Math.random()*(WORLD_W-2*SCALE);
     const jackY=(7.5*SCALE)+Math.random()*((12-7.5)*SCALE);
-    jack={x:jackX,y:jackY,z:0,vx:0,vy:0,vz:0,mass:2.8,phase:'rolling',active:true};
+    jack={x:jackX,y:jackY,z:0,vx:0,vy:0,vz:0,mass:1.96,isJack:true,phase:'rolling',active:true};
     updateScore();updateMsg();loop();
     onTurnStart();
     // En mode réseau : l'hôte envoie l'état initial de manche au guest
@@ -1072,9 +1183,441 @@ margin-top:12px;
   // ═══════════════════════════════════════════════════════
   //  MODE CHALLENGE TIREUR D'ÉLITE
   // ═══════════════════════════════════════════════════════
-  const CH_BEST_KEY='petanque_challenge_best';
-  function chGetBest(){try{return parseInt(localStorage.getItem(CH_BEST_KEY))||0;}catch(e){return 0;}}
-  function chSetBest(n){try{localStorage.setItem(CH_BEST_KEY,String(n));}catch(e){}}
+  // ═══════════════════════════════════════════════════════
+  //  DIALOGUES DU RIVAL — USLPLP (Guillaume & Corentin)
+  //  ⤷ Édite librement les textes ci-dessous. Quatre catégories :
+  //     • TAUNTS  : piques aléatoires (1 ligne) après chaque victoire
+  //     • INTRO   : conversation au tout début de la campagne
+  //     • JALON   : conversation à mi-parcours
+  //     • PREBOSS : conversation juste avant d'affronter l'USLPLP
+  //     • VICTOIRE: conversation après avoir battu l'USLPLP (fin)
+  //  Chaque réplique = { a:'Guillaume'|'Corentin', t:'le texte' }
+  // ═══════════════════════════════════════════════════════
+  const CAMP_DIALOGUE={
+    // ───────── Piques aléatoires (1 ligne, après victoire) ─────────
+    taunts:[
+      {a:'Guillaume', t:"Pas mal... mais nous on aurait fait 13-0."},
+      {a:'Corentin',  t:"Tu appelles ça gagner ? On a déjà vu mieux."},
+      {a:'Guillaume', t:"Continue de t'échauffer. On t'attend en finale."},
+      {a:'Corentin',  t:"Joli. Enfin... pour un amateur."},
+      {a:'Guillaume', t:"13 points ? Nous on en met autant avant le café."},
+      {a:'Corentin',  t:"Tu progresses. Lentement, mais tu progresses."},
+      {a:'Guillaume', t:"L'USLPLP n'a même pas regardé ce match."},
+      {a:'Corentin',  t:"Garde des forces. Tu vas en avoir besoin."},
+    ],
+    // ───────── INTRO : début de campagne ─────────
+    intro:[
+      {a:'Guillaume', t:"Tiens, tiens. Un nouveau venu."},
+      {a:'Corentin',  t:"Tu penses que tu peux devenir la légende de la cité des mobilités ?"},
+      {a:'Guillaume', t:"Pfff il y tant d'équipes à battre pour ça. Tu t'en crois capable ?"},
+      {a:'Corentin',  t:"Laisse tomber. Il abandonnera avant la moitié."},
+      {a:'Guillaume', t:"Hum... on va voir. Mais si tu veux survivre, il va falloir t'accrocher."},
+      {a:'Guillaume', t:"Moi c'est Guillaume, lui c'est Corentin. On est l'USLPLP."},
+      {a:'Corentin',  t:"L'Union Sportive Languedoc Provence La Pétanque. Et on te laissera pas faire.'"},
+      {a:'Guillaume', t:"On va gravir les étapes nous aussi. Essaye de nous rattraper"},
+      {a:'Corentin',  t:"On te reverra à la fin. Si tu y arrives."},
+    ],
+    // ───────── JALONS scénarisés du fil rouge USLPLP ─────────
+    //  ⤷ Interventions de l'USLPLP affichées AVANT l'annonce de match,
+    //     aux niveaux indiqués (tous les 5 par défaut). Un niveau absent
+    //     ou à liste vide = pas d'intervention. Édite/complète librement.
+    //     La clé est le NIVEAU atteint (= numéro du prochain adversaire).
+    jalons:{
+      5:[
+        {a:'Corentin',  t:"Oh ? Tu es encore là, toi ?"},
+        {a:'Guillaume', t:"Niveau 5 déjà. J'avoue, je ne pensais pas que tu tiendrais."},
+        {a:'Corentin',  t:"Ne t'emballe pas. Les équipes faciles, c'est bientôt terminé."},
+        {a:'Guillaume', t:"Corentin, je te sers un petit pastis avant la prochaine partie ?"},
+      ],
+      10:[
+        {a:'Guillaume', t:"Niveau 10. Le premier tiers. Pas mal, l'amateur."},
+        {a:'Corentin',  t:"Mouais, enfin... Nous on l'a fait en 3 minutes, hein."},
+        {a:'Guillaume', t:"L'humilité Corentin, l'humilité. On ne sait jamais, avec cette *tousse* étoile montante"},
+      ],
+      15:[
+        {a:'Corentin',  t:"Tu continues ? Tu commences sérieusement à nous agacer."},
+        {a:'Guillaume', t:"Du calme. Il finira bien par tomber sur plus fort que lui."},
+        {a:'Corentin',  t:"J'ai bien envie qu'on se fasse un petit match avec lui, tiens. Juste pour voir."},
+        {a:'Guillaume', t:"Ce n'est pas le moment Corentin, il ne nous reste plus que 2 équipes... nous."},
+      ],
+      20:[
+        {a:'Guillaume', t:"Niveau 20. Bon... on va peut-être commencer à s'échauffer."},
+        {a:'Corentin',  t:"On vient de battre les Frelons, c'est pas lui qui va nous faire peur."},
+        {a:'Guillaume', t:"Je n'aime pas son regard. Il ira peut-être au bout."},
+      ],
+      25:[
+        {a:'Corentin',  t:"Guillaume. Je veux un aimant."},
+        {a:'Guillaume', t:"Quoi ?"},
+        {a:'Corentin',  t:"Je veux un aimant."},
+        {a:'Guillaume', t:"T'as pété un boulon Corentin ?"},
+        {a:'Corentin',  t:"Je m'ennuie. On a plus personne à affronter avant lui. Et il tarde."},
+        {a:'Guillaume', t:"Et c'est quoi le rapport avec l'aimant ?"},
+        {a:'Corentin',  t:"Je m'ennuie tellement que j'en ai la flemme de me baisser pour ramasser les boules. Je veux un aimant."},
+        {a:'Guillaume', t:"*soupir*..."},
+      ],
+      30:[
+        {a:'Guillaume', t:"Niveau 30... Bravo, je n'y croyais pas. Tu y es presque."},
+        {a:'Corentin',  t:"Encore quelques victoires et on te rencontrera. Mais pas avant."},
+      ],
+      31:[
+        {a:'Corentin',  t:"Plus que deux équipes avant nous. Tu sens la pression ?"},
+        {a:'Guillaume', t:"Le moment approche."},
+      ],
+      32:[
+        {a:'Guillaume', t:"L'avant-dernière. La dernière marche avant l'USLPLP."},
+        {a:'Corentin',  t:"Les Frelons. Tu te souviens ? On les a battus combien de fois ?"},
+        {a:'Guillaume', t:"Je n'ai pas assez de doigts pour compter Corentin."},
+        {a:'Corentin', t:"Exactement !"},
+        
+      ],
+      33:[
+        {a:'Corentin',  t:"Et vous voilà."},
+        {a:'Guillaume', t:"33 victoires. Tu es presque une légende."},
+        {a:'Corentin',  t:"Il te reste un soucis : nous."},
+        {a:'Guillaume', t:"On a pris goût au fauteuil de champion. On ne le lâchera pas."},
+        {a:'Corentin',  t:"Dégaine tes boules. J'attends ce moment depuis trop longtemps."},
+      ],
+    },
+    // ───────── JALON (ancien, conservé en secours) ─────────
+    jalon:[
+      {a:'Corentin',  t:"Oh ? Tu es encore là, toi ?"},
+      {a:'Guillaume', t:"Mi-parcours. J'avoue, je ne pensais pas que tu tiendrais."},
+      {a:'Corentin',  t:"Ne t'emballe pas. Les équipes faciles, c'est terminé."},
+      {a:'Guillaume', t:"La suite va piquer. Et nous, on est tout au bout du chemin."},
+    ],
+    // ───────── PREBOSS : juste avant l'USLPLP ─────────
+    preboss:[
+      {a:'Guillaume', t:"Te voilà. Tu as vraiment battu tout le monde."},
+      {a:'Corentin',  t:"Tout le monde, sauf nous."},
+      {a:'Guillaume', t:"L'USLPLP n'a jamais perdu. Jamais."},
+      {a:'Corentin',  t:"Et ce n'est pas aujourd'hui que ça va changer."},
+      {a:'Guillaume', t:"Montre-nous ce que tu vaux. En place."},
+    ],
+    // ───────── VICTOIRE : après avoir battu l'USLPLP ─────────
+    victoire:[
+      {a:'Corentin',  t:"...Im... impossible."},
+      {a:'Guillaume', t:"On a perdu. Nous. L'USLPLP."},
+      {a:'Corentin',  t:"......"},
+      {a:'Guillaume', t:"Non. Tu as mérité cette victoire. Chapeau, champion."},
+      {a:'Corentin',  t:"C'était un match incroyable."},
+      {a:'Guillaume', t:"Ton tournoi est terminé. Tu es la nouvelle légende de la cité des mobilités."},
+      {a:'Guillaume', t:"On remettra ça."},
+      {a:'Corentin',  t:"On se revoit au prochain tournoi. Et on sera encore plus fort."},
+    ],
+  };
+
+  // ── Moteur de boîte de dialogue ──
+  let dialogueActive=false;
+  let dialogueQueue=[];
+  let dialogueOnDone=null;
+  const DLG_COLORS={Guillaume:'#7ec8ff', Corentin:'#ff9e7e'};
+
+  function showCampDialogue(lines,onDone){
+    if(!lines||!lines.length){if(onDone)onDone();return;}
+    dialogueQueue=lines.slice();
+    dialogueOnDone=onDone||null;
+    dialogueActive=true;
+    document.getElementById('dialogue-overlay').style.display='flex';
+    renderDialogueLine();
+  }
+  function renderDialogueLine(){
+    const line=dialogueQueue[0];
+    if(!line)return;
+    const author=line.a||'';
+    // Suffixe = équipe qui parle. Guillaume/Corentin sont l'USLPLP (jalons, boss) ;
+    // les autres locuteurs appartiennent à l'équipe adverse courante.
+    let team='';
+    if(author==='Guillaume'||author==='Corentin'){team='USLPLP';}
+    else if(gameMode==='campaign'&&teamNames[2]){team=teamNames[2];}
+    document.getElementById('dialogue-author').textContent=author+(team?(' — '+team):'');
+    document.getElementById('dialogue-author').style.color=DLG_COLORS[author]||'#ffe87a';
+    document.getElementById('dialogue-text').textContent=line.t||'';
+    document.getElementById('dialogue-next').textContent=(dialogueQueue.length>1)?'▼ clic pour continuer':'▼ clic pour fermer';
+  }
+  window.advanceDialogue=function(){
+    if(!dialogueActive)return;
+    dialogueQueue.shift();
+    if(dialogueQueue.length===0){
+      dialogueActive=false;
+      document.getElementById('dialogue-overlay').style.display='none';
+      const cb=dialogueOnDone;dialogueOnDone=null;
+      if(cb)cb();
+    }else{
+      renderDialogueLine();
+    }
+  };
+  // Pique aléatoire (1 réplique) parmi les taunts
+  function randomTaunt(){
+    const t=CAMP_DIALOGUE.taunts;
+    if(!t||!t.length)return null;
+    return [t[Math.floor(Math.random()*t.length)]];
+  }
+
+  //  MODE CAMPAGNE SOLO (premier jet : sauvegarde locale)
+  // ═══════════════════════════════════════════════════════
+  const CAMP_KEY='petanque_campagne_normal';   // index équipe atteint (mode normal)
+  const CAMP_HC_KEY='petanque_campagne_hardcore_best'; // meilleur palier hardcore
+  const CAMP_HC_PROG_KEY='petanque_campagne_hardcore_progress'; // série hardcore EN COURS (reprise)
+  function campGetProgress(){try{return parseInt(localStorage.getItem(CAMP_KEY))||0;}catch(e){return 0;}}
+  function campSetProgress(n){try{localStorage.setItem(CAMP_KEY,String(n));}catch(e){}}
+  function campGetHardcoreBest(){try{return parseInt(localStorage.getItem(CAMP_HC_KEY))||0;}catch(e){return 0;}}
+  function campSetHardcoreBest(n){try{localStorage.setItem(CAMP_HC_KEY,String(n));}catch(e){}}
+  function campGetHardcoreProgress(){try{return parseInt(localStorage.getItem(CAMP_HC_PROG_KEY))||0;}catch(e){return 0;}}
+  function campSetHardcoreProgress(n){try{localStorage.setItem(CAMP_HC_PROG_KEY,String(n));}catch(e){}}
+
+  // Ordre des équipes affrontées. Provisoire : ordre du CSV (à calibrer plus tard
+  // par difficulté croissante quand on retravaillera les stats d'équipes).
+  // Index de l'équipe rivale (boss final) dans `equipes`
+  // Index du boss (USLPLP) dans campTeams. Par construction du CSV, c'est la
+  // dernière équipe (ordre le plus élevé), mais on le repère par le nom au cas où.
+  function campBossIndex(){
+    for(let i=0;i<campTeams.length;i++){
+      if(campTeams[i]&&/USLPLP/i.test(campTeams[i].nom))return i;
+    }
+    return campTeams.length-1;
+  }
+  // Ordre d'affrontement = ordre du CSV campagne (déjà trié par `ordre`).
+  function campBuildOrder(){
+    return campTeams.map((_,i)=>i);
+  }
+
+  window.openCampagneMenu=function(){
+    // Un pseudo est requis (identité pour la sauvegarde cloud et les classements)
+    if(!getPseudo()){
+      pseudoPendingAction=openCampagneMenu;
+      openPseudoEdit(true);
+      return;
+    }
+    document.getElementById('menu-solo').style.display='none';
+    document.getElementById('menu-campagne').style.display='flex';
+    renderCampMenuInfo();
+    // Réconciliation cloud (best-effort) : si le cloud a une progression normale
+    // plus avancée (autre appareil, cache vidé), on l'adopte localement.
+    // Sauf juste après une réinitialisation volontaire (campResetSession).
+    if(campResetSession)return;
+    const pseudo=getPseudo();
+    supabaseFetchCampaign().then(rows=>{
+      if(campResetSession)return; // l'utilisateur a réinitialisé entre-temps
+      let cloudNormal=0;
+      rows.forEach(r=>{
+        if(r.pseudo===pseudo&&r.mode==='normal'){
+          const t=parseInt(r.teams_beaten)||0;
+          if(t>cloudNormal)cloudNormal=t;
+        }
+      });
+      if(cloudNormal>campGetProgress()){campSetProgress(cloudNormal);renderCampMenuInfo();}
+    }).catch(()=>{});
+  };
+
+  function renderCampMenuInfo(){
+    const total=campTeams.length;
+    const prog=campGetProgress();
+    const hcBest=campGetHardcoreBest();
+    const hcProg=campGetHardcoreProgress();
+    const info=document.getElementById('camp-progress-info');
+    info.innerHTML='Équipes à battre : '+total+'<br>'
+      +'Progression Normal : '+Math.min(prog,total)+' / '+total+'<br>'
+      +'Record Hardcore : '+hcBest+' / '+total
+      +((hcProg>0&&hcProg<total)?('<br>Série Hardcore en cours : '+hcProg+' / '+total):'');
+    document.getElementById('btn-camp-normal').innerHTML=(prog>0&&prog<total)
+      ? '▶ Reprendre (Normal)<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">équipe '+(prog+1)+' / '+total+'</span>'
+      : '▶ Mode Normal<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">on peut perdre sans reculer</span>';
+    document.getElementById('btn-camp-hardcore').innerHTML=(hcProg>0&&hcProg<total)
+      ? '💀 Reprendre (Hardcore)<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">équipe '+(hcProg+1)+' / '+total+'</span>'
+      : '💀 Mode Hardcore<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">une défaite = retour au début</span>';
+    document.getElementById('btn-camp-reset').style.display=(prog>0)?'inline-block':'none';
+  }
+
+  window.resetCampagneNormal=function(){
+    // Repart du début : on remet la progression locale à 0 et on rafraîchit
+    // l'affichage SANS re-réconcilier avec le cloud (sinon l'ancienne valeur
+    // cloud serait immédiatement réadoptée). Le record du classement (un max)
+    // reste volontairement intact.
+    campSetProgress(0);
+    campResetSession=true; // ne pas réadopter le cloud tant qu'on n'a pas rejoué
+    renderCampMenuInfo();
+  };
+
+  window.startCampagne=function(hardcore){
+    if(!campTeams.length)return;
+    campResetSession=false; // on (re)lance : la réconciliation cloud redevient active
+    campHardcore=!!hardcore;
+    campOrder=campBuildOrder();
+    // Reprise : en normal on repart de la progression sauvée ; en hardcore on
+    // reprend la série en cours (l'abandon ne remet PAS à zéro, seule la défaite).
+    campIndex=campHardcore
+      ? Math.min(campGetHardcoreProgress(),campOrder.length-1)
+      : Math.min(campGetProgress(),campOrder.length-1);
+    campResult=null;
+    document.getElementById('menu-niveau1').style.display='none';
+    document.getElementById('menu-solo').style.display='none';
+    document.getElementById('menu-campagne').style.display='none';
+    gameMode='campaign';
+    document.getElementById('screen-splash').style.display='none';
+    document.getElementById('screen-select').style.display='none';
+    document.getElementById('rules-hint').style.display='flex';
+    document.getElementById('screen-rules').style.display='none'; // pas d'overlay règles en campagne (lisibilité avec le dialogue)
+    document.body.classList.add('in-game');
+    campJalonShown=false;campPrebossShown=false;campJalonDone={};
+    // Dialogue d'introduction de l'USLPLP, joué UNE SEULE FOIS quand on démarre au
+    // tout début (niveau 1). En reprise (campIndex>0), on saute l'intro.
+    const introLines=CAMP_DIALOGUE.intro;
+    if(campIndex===0&&introLines&&introLines.length){
+      campMusicIntro(); // ambiance d'intro pendant le dialogue d'ouverture
+      showCampDialogue(introLines,campShowVersus);
+    }else{
+      campShowVersus(); // annonce de match (+ jalon éventuel) avant le combat
+    }
+    adjustCanvas();scheduleCanvasFit();
+  };
+
+  // Affiche, si besoin, le jalon USLPLP du niveau courant, PUIS l'écran d'annonce
+  // de match (versus). Le combat ne démarre qu'au clic sur « Combattre ».
+  function campShowVersus(){
+    const level=campIndex+1; // niveau = numéro du prochain adversaire
+    campMusicIntro(); // musique d'intro (écran d'annonce + jalon + dialogue de début)
+    const jalon=(CAMP_DIALOGUE.jalons&&CAMP_DIALOGUE.jalons[level])||null;
+    const showVersusScreen=()=>{
+      const eq=campTeams[campOrder[campIndex]];
+      document.getElementById('versus-level').textContent='NIVEAU '+level;
+      document.getElementById('versus-name').textContent=(eq?eq.nom:'Équipe').toUpperCase();
+      document.getElementById('versus-sub').textContent=(eq&&campBossIndex()===campOrder[campIndex])
+        ? 'COMBAT FINAL — Prêt ?' : 'Prêt pour le match ?';
+      document.getElementById('screen-versus').style.display='flex';
+    };
+    // Jalon scénarisé (tous les 5 niveaux par défaut), une fois par passage de niveau
+    if(jalon&&jalon.length&&!campJalonDone[level]){
+      campJalonDone[level]=true;
+      showCampDialogue(jalon,showVersusScreen);
+    }else{
+      showVersusScreen();
+    }
+  }
+  window.versusGo=function(){
+    document.getElementById('screen-versus').style.display='none';
+    campStartMatch();
+  };
+  window.versusQuit=function(){
+    campStopAllExtra();
+    document.getElementById('screen-versus').style.display='none';
+    showSelect();
+    document.getElementById('menu-niveau1').style.display='none';
+    document.getElementById('menu-solo').style.display='flex';
+    refreshPseudoDisplay();
+  };
+
+  // Lance un match contre l'équipe d'index campIndex
+  function campStartMatch(){
+    const eqIdx=campOrder[campIndex];
+    const eq=campTeams[eqIdx];
+    teamNames[1]=getPseudo()||'TOI';
+    teamNames[2]=eq?eq.nom:'Équipe';
+    // L'IA prend les stats de l'équipe courante
+    aiRaw=eq?{analyse:eq.analyse,tir:eq.tir,pointage:eq.pointage}:{analyse:0.5,tir:0.5,pointage:0.5};
+    document.getElementById('p1name').textContent=teamNames[1];
+    document.getElementById('p2name').textContent=teamNames[2];
+    scoreTotal={1:0,2:0};
+    matchRecorded=false;
+    campResult=null;
+    newManche();
+    updateCampagneMsg();
+    // Dialogue de début de combat propre à l'équipe (colonne Line_Start du CSV).
+    // La musique d'intro continue pendant ce dialogue, puis on bascule sur la
+    // musique de base quand il se termine (vrai début du match).
+    const startLines=eq?parseDialogueLines(eq.Line_Start):[];
+    if(startLines.length){
+      showCampDialogue(startLines,campMusicMatch);
+    }else{
+      campMusicMatch();
+    }
+  }
+
+  function updateCampagneMsg(){
+    const total=campOrder.length;
+    const tag=campHardcore?'💀 HARDCORE':'CAMPAGNE';
+    setMsg(tag+'  ·  Adversaire '+(campIndex+1)+' / '+total+'  ·  '+teamNames[2]);
+  }
+
+  // Appelé à la fin d'un match de campagne (depuis onMatchEnded)
+  // Envoi cloud best-effort d'un jalon de campagne (ne bloque jamais le jeu).
+  function campCloudSend(mode,teamsBeaten){
+    const pseudo=(getPseudo()||'?').slice(0,10);
+    if(!pseudo||pseudo==='?')return;
+    if(teamsBeaten<1&&mode==='hardcore')return; // pas de serie hardcore vide
+    supabaseInsertCampaign(pseudo,mode,teamsBeaten).catch(()=>{});
+  }
+
+  function campOnMatchEnd(winner){
+    const playerWon=(winner===1);
+    if(playerWon){
+      campResult='win';
+      campMusicVictory(); // musique de victoire (couvre le dialogue de fin)
+      // Équipe qu'on vient de battre (avant incrément de campIndex)
+      const beatenTeam=campTeams[campOrder[campIndex]];
+      const endLines=beatenTeam?parseDialogueLines(beatenTeam.Line_End):[];
+      // Avance d'un cran
+      campIndex++;
+      if(!campHardcore){
+        // Sauvegarde la progression normale (équipes battues)
+        if(campIndex>campGetProgress())campSetProgress(campIndex);
+        campCloudSend('normal',campIndex);
+      }else{
+        // Sauvegarde la série hardcore en cours (pour reprise après abandon)
+        campSetHardcoreProgress(campIndex);
+      }
+      if(campIndex>=campOrder.length){
+        // Toutes les équipes battues → victoire finale
+        campResult='done';
+        if(campHardcore){
+          const total=campOrder.length;
+          if(total>campGetHardcoreBest())campSetHardcoreBest(total);
+          campCloudSend('hardcore',total);
+          campSetHardcoreProgress(0); // campagne hardcore terminée → série remise à zéro
+        }
+        state='camp-done';
+        setMsg('🏆 CAMPAGNE TERMINÉE !');
+        // Dialogue de fin du boss (USLPLP), puis retour au menu
+        showCampDialogue(endLines.length?endLines:CAMP_DIALOGUE.victoire,campContinue);
+      }else{
+        state='camp-win';
+        setMsg('✅ '+teamNames[2]+' battue !');
+        // Dialogue de fin de l'équipe battue (Line_End du CSV) ; sinon pique générique
+        const lines=endLines.length?endLines:randomTaunt();
+        showCampDialogue(lines,campContinue);
+      }
+    }else{
+      campResult='lose';
+      campMusicDefeat(); // musique de défaite (couvre le dialogue de fin)
+      if(campHardcore){
+        // Record = nombre d'équipes battues avant la défaite (campIndex)
+        if(campIndex>campGetHardcoreBest())campSetHardcoreBest(campIndex);
+        campCloudSend('hardcore',campIndex);
+        campSetHardcoreProgress(0); // défaite = la série en cours repart de zéro
+        state='camp-lose';
+        setMsg('💀 Défaite ! Série hardcore terminée à '+campIndex+' victoire(s). Espace = recommencer');
+        campIndex=0; // retour au début
+      }else{
+        state='camp-lose';
+        setMsg('❌ Défaite contre '+teamNames[2]+'. Espace pour réessayer');
+        // En normal : on ne recule pas, on rejoue la même équipe
+      }
+    }
+  }
+
+  // Enchaîne vers le match suivant (ou ressaie) après l'écran de fin de match
+  window.campContinue=function(){
+    if(campResult==='done'){
+      // Victoire finale → retour au menu (sous-menu Solo)
+      showSelect();
+      document.getElementById('menu-niveau1').style.display='none';
+      document.getElementById('menu-solo').style.display='flex';
+      refreshPseudoDisplay();
+      return;
+    }
+    campShowVersus(); // annonce du prochain adversaire (+ jalon éventuel)
+  };
+
+
 
   // Position de la cible selon le niveau de difficulté.
   // Plus le niveau monte : la cible s'éloigne (y croissant) et se décale
@@ -1133,6 +1676,11 @@ margin-top:12px;
     return arr;
   }
 
+  // Record local de série (challenge) — restauré (perdu lors d'un refactor)
+  const CH_BEST_KEY='petanque_challenge_best';
+  function chGetBest(){try{return parseInt(localStorage.getItem(CH_BEST_KEY))||0;}catch(e){return 0;}}
+  function chSetBest(n){try{localStorage.setItem(CH_BEST_KEY,String(n));}catch(e){}}
+
   window.startChallenge=function(){
     gameMode='challenge';
     chStreak=0;chLevel=1;chResult=null;
@@ -1145,7 +1693,7 @@ margin-top:12px;
     document.body.classList.add('in-game');
     scoreTotal={1:0,2:0};
     challengeNewManche();
-    adjustCanvas();setTimeout(adjustCanvas,300);
+    adjustCanvas();scheduleCanvasFit();
   };
 
   // Démarre une nouvelle manche de challenge (au niveau chLevel courant)
@@ -1267,6 +1815,194 @@ Touz & Roll,0.8,0.8,0.8`;
     });
   }
 
+  // ═══════════════════════════════════════════════════════
+  //  CSV CAMPAGNE (équipes, stats, ordre, dialogues début/fin)
+  // ═══════════════════════════════════════════════════════
+  const CAMPAGNE_CSV=`nom,analyse,tir,pointage,ordre,Line_Start,Line_End
+Les Terribles Dragon Boules,0.2,0.2,0.2,1,"Corentin: Nous sommes ...  ;
+Christian: Les Terribles ....  ;
+Jean: Dragons Boules !   ;
+Corentin: Tu seras notre 1ere victoire ! ;
+Christian: Ca va être fun !!","Corentin: Argh ;
+Christian: C'était pas la ligue du fun ça ..."
+Les trois petits cochons,0.2,0.2,0.2,2,"Tristan: Oh tu as gagné les dragons boules ? ;
+Elie: Nous aussi ! ;
+Clément: Tu ne pourras rien faces aux 3 petits cochons ! ","Tristan: Bravo à vous ;
+Clément: On est un peu les lardons de la farce là"
+Société des Carreaux Approximatifs,0.2,0.2,0.35,3,"Catherine: Bonjour ! ;
+Alix: Ca vous dit une petite partie ? ;
+Sylvain: Nous représentons la SCA ! ;
+Les 3 (en choeur): La Société des Carreaux Approximatifs ! ",Alix: Wow vous êtiez pas si approximatifs vous
+Les boules de Newton,0.35,0.2,0.2,4,"Bruno: Tu connais le principe des boules de Newton ? ; 
+Christophe: Tu pointes et nous on tire ta boule !","Christophe: On s'est prie l'inertie de vos boules là ;
+Bruno: Il nous reste plus qu'à remonter notre pendule"
+Boules à carreau,0.4,0.25,0.25,5,"Marion: Hey toi ! C'est l'heure d'affronter un vrai adversaire ;
+Adolphe: Tiens toi à carreau ! ;
+Marion: Voici l'heure des Boules à Carreaux !","Marion: Aie ;
+Adolphe: Ca s'est pas passé comme prévue"
+The Rolling Stones,0.3,0.3,0.3,6,"Joris: Hellooo, t'es pris pour du rock ? ;
+Charlotte: Nous on adore le rock ! ; 
+Charlotte: Rolling Stone !","Joris: On va peut être passer à la country ;
+Charlotte: Oui c'est bien la country, je vais me trouver un chapeau"
+Les pétanqueuses du dimanche,0.3,0.3,0.45,7,"Céline: Le dimanche, on joue à la cool nous ;
+Laurence: Pas de pression, juste l'apéro qui nous attend ;
+Céline: Mais on va quand même te montrer deux trois trucs !","Laurence: Bon, finalement c'est toi qui prends l'apéro ;
+Céline: On se rattrapera dimanche prochain"
+MYKA sans pression,0.35,0.35,0.35,8,"Karen: MYKA sans pression, t'as capté le concept ? ;
+Myriam: Zéro stress, on joue relax ;
+Karen: ...mais on déteste perdre quand même","Myriam: Bon là par contre, petite pression "
+The Falcons,0.3,0.45,0.3,9,"Géraldine: Les Falcons fondent sur leur proie ! ;
+Mathilde: On vise, on plonge, on carreau ;
+Zhixiong: Prépare-toi à te faire plumer !","Mathilde: On a pas fait long feu là ;
+Géraldine: Le faucon est retombé comme un pigeon"
+Les démons de minuit,0.35,0.5,0.35,10,"David: Quand sonne minuit, les démons sortent ;
+Mathis: Et nos boules ne font pas de cadeau ;
+David: Tu vas vivre un cauchemar !","Mathis: Minuit est passé, on redevient gentils ;
+David: Citrouille en vue, on file"
+Intern-cheap,0.35,0.35,0.5,11,"Sharleen: Intern-cheap, le stage le moins cher du monde ;
+Vincent: On bosse gratuit mais on joue cher payé ;
+Sharleen: Note bien notre nom dans ton rapport !","Vincent: Bon, stage non validé ;
+Sharleen: On retourne à la photocopieuse"
+Les ptits stagiaires de merde,0.45,0.45,0.45,12,"Valentine: On est les ptits stagiaires... ;
+Noa: ...de merde ! ;
+Emma: Mais on tire mieux qu'on fait le café !","Valentine: Bon, on est retournés au café ;
+Emma: Au moins ça on sait faire"
+CEREMA BULL,0.4,0.4,0.55,13,"Fabrice: CEREMA BULL, on fonce dans le tas ;
+Rémi: Comme un taureau sur le cochonnet ;
+Léo: Olé !","Rémi: Le taureau s'est pris la barrière ;
+Léo: Olé... un peu moins fort"
+Opération cochonnet,0.45,0.45,0.6,14,"Fabrice: Opération cochonnet, mission secrète ;
+Bernard: Objectif : t'éliminer en silence ;
+Fabrice: 3, 2, 1... on tire !","Bernard: Mission échouée, agent ;
+Fabrice: On s'auto-détruira dans 5 secondes"
+RaMaCe,0.45,0.45,0.6,15,"Marie-Aurélie: RaMaCe, t'as vu nos initiales ? ;
+Raphaël: On ramasse tout sur le terrain ;
+Cédric: Et on commence par toi !","Marie-Aurélie: Bon, on a rien ramassé du tout ;
+Cédric: On va racler les fonds de tiroir"
+Les Catapultes de l'Espace,0.45,0.6,0.45,16,"Agathe: Les Catapultes de l'Espace, décollage imminent ;
+Julie: On envoie nos boules en orbite ;
+Agathe: Tirez !","Julie: Houston, on a un problème ;
+Agathe: Rentrée dans l'atmosphère un peu ratée"
+La BAZ,0.5,0.5,0.65,17,"Antoine: La BAZ, courte mais costaude ;
+Zoher: Trois lettres, zéro pitié ;
+Bachir: BAZ, comme BAZton !","Zoher: La BAZ a fait pschitt ;
+Antoine: On rentre à la baz... "
+Djé & compagnie,0.5,0.5,0.65,18,"Jérôme: Djé & compagnie, l'équipe d'un seul homme... ;
+Arthur: ...et de toute sa compagnie ! ","Arthur: La compagnie démissionne, ciao Djé "
+Les CDI,0.6,0.6,0.6,19,"Rochdi: Les Carreaux à Durée Indéterminés ... ;
+Emmanuel: Pas de période d'essai chez nous ;
+Pierrick: Tu nous signes ton contrat de défaite ? !",Pierrick: Quelqu'un a un mouchoir ? J'ai une poussière dans l'oeil 
+Les chapeaux magiques,0.55,0.55,0.7,20,"David: Les chapeaux magiques, abracadabra ;
+Claudia: On fait disparaître tes boules ;
+Sandrine: Magie magie, comment tu comptes faire maintenant ?",Claudia: Je savais qu'on aurait du jouer avec une baguette ... 
+Les Flash- (D)Mob,0.55,0.55,0.7,21,"Géraldine: Tu vas ? ;
+Loic: Nous on est au top ! C'est partie pour la chorée ! Allez tous ensemble ! :","Géraldine: La chorégraphie est tombée à l'eau ;
+Loic: Plus !"
+Papou team,0.6,0.6,0.75,22,"Alexandre: La Papou team, Papou comme ;
+Romain: Oui c'est vrai ça: Papou comme un Papou ou comme un Papounet ? ;
+Alexandre: On verra ça aprés le match !","Romain: Papou comme un papi en fait ...;
+Alexandre: La sieste m'appelle de toute façon"
+LEG,0.6,0.6,0.75,23,"Gilles: Force G ;
+Emmanuel: Force E ;
+Lise: Force L ! ;
+Les trois: GEL ! ;
+Lise: Hey les gars, c'est l'inverse, on recommence ...","Gilles: On aurait du gagner ... ;
+Gilles: Lise Nova, venge nous ! "
+Le clan des Majolanes,0.65,0.65,0.8,24,"Leïla: Le clan des Majolanes, la mafia de Mezieux ;
+Anne: On défend notre territoire ;
+Sylvie: Personne ne ressortira du terrain !",Sylvie: On se replie sur Meyzieu ! 
+Les OAsillons,0.7,0.8,0.75,25,"Maud: Les boulets OA, c'était pas mal ;
+Florent: Mais on voulait quelque chose de plus poétique ;
+Maud: Les OAsillons vont te picorer !","Florent: On a pas picorer à notre faim là ;
+Maud: Au moins les boulets c'était cohérent"
+Les concessionnaires du cochonnet,0.7,0.7,0.85,26,"Murielle: Les concessionnaires du cochonnet ;
+Arnaud: On te vend du rêve... et on reprend ta boule ;
+Murielle: Reprise possible, sans garantie !","Arnaud: Le concessionnaire fait faillite ;
+Murielle: Liquidation totale du stock de boules"
+Les pas laids bretons,0.7,0.85,0.7,27,"Nicolas: Les pas laids bretons, beaux et fiers ;
+Clément: Sur une planche en bois ou sur la terre ;
+Manon: On lance et on gagne !","Nicolas: C'est moi ou il pleut juste sur nous à ? ;
+Manon: On va se consoler avec une galette Nicolas ..."
+Les boules à paillettes,0.7,0.8,0.85,28,"Johan: Les boules à paillettes, ça brille fort ;
+Christophe:Mets des lunettes de soleil pour pas être éblouie ;
+David: Par le pouvoir du Disco !","Christophe: Ca colle les paillettes en fait... ;
+David: Faut tout balayer maintenant"
+Las Cuotas,0.75,0.85,0.75,29,"Lucile: Las Cuotas, on joue à l'espagnole ;
+Yannick: Ole, ole, on tire avec passion ;
+Lucile: Que la fiesta commence !","Yannick: La fiesta est finie ;
+Lucile: On rentre faire la siesta"
+Les Dodo's,0.8,0.9,0.8,30,"Lionel: Les Dodo's, l'oiseau qui ne vole plus ;
+Marielle: Mais qui tire encore très bien. Vas y Lionel, dégomme les ! ;
+Lionel: Le canon est chargé... Armez, feu, DODO !","Marielle: Le dodo s'est éteint, encore ;
+Lionel: Décidément on était voués à disparaître"
+Touz & Roll,0.8,0.85,0.8,31,"Fayçal: Touz & Roll, c'est nous ! Votre voyage s'arrête ici ;
+Romain: Une boule qui roule n'amasse pas mousse ;
+Fayçal: Tu deviens philosophe toi ?","Romain: Une boule vaut mieux que deux, tu l'auras;
+Fayçal: Fluctuat nec mergitur ..."
+Bande d'Arrêt d'Urgence,0.85,0.85,0.85,32,"Cyrille: Bande d'Arrêt d'Urgence en approche;
+Olivier: Va falloir vous mettre sur le coté ;
+Cyrille: Vous allez finir en panne !","Olivier: Bon je mets le triangle de signalisation ... ;
+Cyrille: Faites bonne route ! Bonne chance pour la demie-finale !"
+Les Frelons de la Pétanque,0.9,0.9,0.9,33,"Jean-Vincent: Les Frelons de la Pétanque, ça pique ;
+Mehdi: On pointe et on pique ! ;
+Jean-Vincent: Bzzz... Et moi je pointe jamais !","Mehdi: Avec tous ces frelons asiatiques, on fait plus le poids. "
+USLPLP,0.99,0.99,0.99,34,"Guillaume: Te voilà enfin. Tu as battu tout le monde. ;
+Corentin: Tout le monde sauf nous. ;
+Guillaume: L'USLPLP n'a plus perdu. Et ne perdra plus ! ;
+Corentin: Et ce n'est pas toi qui va changer ca. ;
+Guillaume: Assez parlé. En place !","Corentin: ...Im... impossible. ;
+Guillaume: On a perdu. Nous. L'USLPLP. ;
+Corentin: ...... ;
+Guillaume: Non. Tu ... tu l'as mérité. Chapeau, champion. ;
+Corentin: On se retrouvera au prochain tournoi !"`;
+
+  // Parseur CSV robuste : gère guillemets, virgules internes et retours à la ligne
+  function parseCSVRobust(text){
+    const rows=[];let row=[];let field='';let i=0;let inQ=false;
+    text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    while(i<text.length){
+      const c=text[i];
+      if(inQ){
+        if(c==='"'){ if(text[i+1]==='"'){field+='"';i+=2;continue;} inQ=false;i++;continue; }
+        field+=c;i++;continue;
+      }
+      if(c==='"'){inQ=true;i++;continue;}
+      if(c===','){row.push(field);field='';i++;continue;}
+      if(c==='\n'){row.push(field);rows.push(row);row=[];field='';i++;continue;}
+      field+=c;i++;
+    }
+    if(field.length>0||row.length>0){row.push(field);rows.push(row);}
+    return rows;
+  }
+  // Parse le CSV campagne en tableau d'objets, trié par colonne `ordre`
+  function parseCampCSV(csv){
+    const rows=parseCSVRobust(csv.trim());
+    if(!rows.length)return [];
+    const headers=rows[0].map(h=>h.trim());
+    const teams=rows.slice(1)
+      .filter(r=>r.length>=5 && r[0] && r[0].trim())
+      .map(r=>{const o={};headers.forEach((h,idx)=>o[h]=(r[idx]!==undefined?r[idx]:''));return o;});
+    teams.forEach(t=>{
+      t.nom=(t.nom||'').trim();
+      t.analyse=parseFloat(t.analyse)||0.3;
+      t.tir=parseFloat(t.tir)||0.3;
+      t.pointage=parseFloat(t.pointage)||0.3;
+      t.ordre=parseInt(t.ordre)||0;
+    });
+    teams.sort((a,b)=>a.ordre-b.ordre);
+    return teams;
+  }
+  // Convertit une chaîne de dialogue ("Nom: texte ; Nom: texte") en [{a,t}]
+  function parseDialogueLines(str){
+    if(!str)return [];
+    return str.split(';').map(s=>s.trim()).filter(s=>s.length).map(seg=>{
+      const idx=seg.indexOf(':');
+      if(idx<0)return {a:'', t:seg};
+      return {a:seg.slice(0,idx).trim(), t:seg.slice(idx+1).trim()};
+    }).filter(l=>l.t.length);
+  }
+  let campTeams=[]; // équipes de la campagne (parsées au chargement)
+
   function populateTeamSelects(){
     ['select-team1','select-team2','select-team-net'].forEach(id=>{
       const sel=document.getElementById(id);
@@ -1304,6 +2040,17 @@ Touz & Roll,0.8,0.8,0.8`;
   window.showSubMenuSolo=function(){
     document.getElementById('menu-niveau1').style.display='none';
     document.getElementById('menu-solo').style.display='flex';
+    {const mc=document.getElementById('menu-campagne');if(mc)mc.style.display='none';}
+    {const mch=document.getElementById('menu-challenge');if(mch)mch.style.display='none';}
+    refreshPseudoDisplay();
+  };
+
+  // Sous-menu Challenge Tir (lancer + records)
+  window.openChallengeMenu=function(){
+    document.getElementById('menu-niveau1').style.display='none';
+    document.getElementById('menu-solo').style.display='none';
+    {const mc=document.getElementById('menu-campagne');if(mc)mc.style.display='none';}
+    document.getElementById('menu-challenge').style.display='flex';
     refreshPseudoDisplay();
   };
 
@@ -1329,14 +2076,17 @@ Touz & Roll,0.8,0.8,0.8`;
     document.getElementById('menu-niveau1').style.display='flex';
     document.getElementById('menu-niveau2').style.display='none';
     document.getElementById('menu-solo').style.display='none';
+    {const mc=document.getElementById('menu-campagne');if(mc)mc.style.display='none';}
+    {const mch=document.getElementById('menu-challenge');if(mch)mch.style.display='none';}
     // Désactiver les boutons de mode et cacher les panneaux spécifiques
     document.getElementById('btn-pvp').classList.remove('active');
     document.getElementById('btn-pvr').classList.remove('active');
     document.getElementById('btn-pvc').classList.remove('active');
     document.getElementById('net-panel').style.display='none';
     document.getElementById('ai-config').style.display='none';
-    document.getElementById('team-names').style.display='flex';
-    document.getElementById('btn-start').style.display='block';
+    document.getElementById('team-names').style.display='none';
+    document.getElementById('btn-start').style.display='none';
+    {const bb=document.getElementById('btn-config-back');if(bb)bb.style.display='none';}
     netCleanup();
   };
 
@@ -1410,6 +2160,27 @@ Touz & Roll,0.8,0.8,0.8`;
     });
   }
 
+  // Enregistre un jalon de campagne (mode 'normal' ou 'hardcore')
+  function supabaseInsertCampaign(pseudo,mode,teamsBeaten){
+    return fetch(SUPABASE_URL+'/rest/v1/campaign_scores',{
+      method:'POST',
+      headers:Object.assign({},SUPABASE_HEADERS,{'Prefer':'return=minimal'}),
+      body:JSON.stringify({pseudo:pseudo,mode:mode,teams_beaten:teamsBeaten})
+    }).then(r=>{
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return true;
+    });
+  }
+  // Récupère tous les jalons de campagne (pour classements + reprise)
+  function supabaseFetchCampaign(){
+    return fetch(SUPABASE_URL+'/rest/v1/campaign_scores?select=pseudo,mode,teams_beaten',{
+      headers:SUPABASE_HEADERS
+    }).then(r=>{
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.json();
+    });
+  }
+
   // ═══════════════════════════════════════════════════════
   //  PSEUDO (identité au classement) — stocké localement
   // ═══════════════════════════════════════════════════════
@@ -1458,6 +2229,7 @@ Touz & Roll,0.8,0.8,0.8`;
   // Appelé quand un match se termine (state==='match').
   // Conditions d'enregistrement : mode réseau + rôle hôte + pas déjà enregistré.
   function onMatchEnded(winner){
+    if(gameMode==='campaign'){campOnMatchEnd(winner);return;}
     if(gameMode!=='pvr'||netRole!=='host')return; // seul l'hôte réseau enregistre
     if(matchRecorded)return;
     matchRecorded=true;
@@ -1529,6 +2301,49 @@ Touz & Roll,0.8,0.8,0.8`;
       body.innerHTML='<div style="padding:20px;color:#e0a030;line-height:1.8;">⚠ Impossible de charger les records.<br>Vérifie ta connexion.</div>';
     });
   };
+  // Classements de campagne (mode 'normal' ou 'hardcore')
+  window.openCampClassement=function(mode){
+    const body=document.getElementById('classement-body');
+    document.getElementById('classement-title').textContent=
+      (mode==='hardcore'?'💀 CAMPAGNE HARDCORE':'🏆 CAMPAGNE NORMAL');
+    document.getElementById('screen-classement').style.display='flex';
+    body.innerHTML='<div style="padding:20px;color:#aaa;">Chargement…</div>';
+    supabaseFetchCampaign().then(rows=>{
+      renderCampClassement(rows,mode);
+    }).catch(()=>{
+      body.innerHTML='<div style="padding:20px;color:#e0a030;line-height:1.8;">⚠ Impossible de charger le classement.<br>Vérifie ta connexion.</div>';
+    });
+  };
+  function renderCampClassement(rows,mode){
+    const body=document.getElementById('classement-body');
+    const total=campTeams.length;
+    const best={};
+    rows.forEach(r=>{
+      if(!r.pseudo||r.mode!==mode)return;
+      const t=parseInt(r.teams_beaten)||0;
+      if(best[r.pseudo]===undefined||t>best[r.pseudo])best[r.pseudo]=t;
+    });
+    const list=Object.keys(best).map(p=>({pseudo:p,n:best[p]}))
+      .sort((a,b)=>b.n-a.n||a.pseudo.localeCompare(b.pseudo));
+    if(!list.length){
+      body.innerHTML='<div style="padding:20px;color:#aaa;line-height:1.8;">Aucune progression enregistrée<br>pour l\'instant.</div>';
+      return;
+    }
+    let html='<table style="width:100%;border-collapse:collapse;font-family:\'Press Start 2P\',monospace;">';
+    html+='<tr style="color:#ffe87a;font-size:8px;"><th style="text-align:left;padding:6px 4px;">#</th><th style="text-align:left;padding:6px 4px;">PSEUDO</th><th style="padding:6px 4px;">ÉQUIPES</th></tr>';
+    list.forEach((s,i)=>{
+      const bg=i%2?'rgba(255,255,255,0.04)':'transparent';
+      const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+      const done=(s.n>=total)?' ✓':'';
+      html+='<tr style="background:'+bg+';font-size:9px;color:#ddd;">'
+        +'<td style="padding:6px 4px;text-align:left;">'+medal+'</td>'
+        +'<td style="padding:6px 4px;text-align:left;color:#ffe87a;">'+escapeHtml(s.pseudo)+'</td>'
+        +'<td style="padding:6px 4px;text-align:center;color:#7dca7d;">'+s.n+' / '+total+done+'</td>'
+        +'</tr>';
+    });
+    html+='</table>';
+    body.innerHTML=html;
+  }
   function renderChallengeClassement(rows){
     const body=document.getElementById('classement-body');
     // Meilleur score par pseudo
@@ -1615,6 +2430,31 @@ Touz & Roll,0.8,0.8,0.8`;
     document.getElementById('net-panel').style.display=m==='pvr'?'flex':'none';
     document.getElementById('team-names').style.display=m==='pvr'?'none':'flex';
     document.getElementById('btn-start').style.display=m==='pvr'?'none':'block';
+    // Bouton retour de l'écran de config : revient au menu d'où vient le mode
+    // (Partie rapide = pvc → menu Solo ; pvp/pvr → menu Multi).
+    configBackTarget=(m==='pvc')?'solo':'multi';
+    document.getElementById('btn-config-back').style.display='block';
+  };
+
+  let configBackTarget='solo';
+  window.backFromConfig=function(){
+    // Masque l'écran de config (équipes / IA / réseau / lancer)
+    document.getElementById('ai-config').style.display='none';
+    document.getElementById('net-panel').style.display='none';
+    document.getElementById('team-names').style.display='none';
+    document.getElementById('btn-start').style.display='none';
+    document.getElementById('btn-config-back').style.display='none';
+    document.getElementById('btn-pvp').classList.remove('active');
+    document.getElementById('btn-pvc').classList.remove('active');
+    document.getElementById('btn-pvr').classList.remove('active');
+    netCleanup(); // si on était en attente réseau, on coupe proprement
+    if(configBackTarget==='multi'){
+      document.getElementById('menu-niveau1').style.display='none';
+      document.getElementById('menu-niveau2').style.display='flex';
+      refreshPseudoDisplay();
+    }else{
+      showSubMenuSolo();
+    }
   };
 
   // Difficulté manuelle : Facile=Moyen actuel (0.5), Moyen=Bon actuel (0.75), Expert (1.0)
@@ -1688,6 +2528,9 @@ Touz & Roll,0.8,0.8,0.8`;
   // ═══════════════════════════════════════════════════════
   function fitCanvasFullscreen(){
     const shell=document.getElementById('game-shell');
+    const shellRect=shell.getBoundingClientRect();
+    // Si le shell n'est pas (encore) visible, on ne mesure pas : on reprogramme.
+    if(shellRect.width<40||shellRect.height<40){scheduleCanvasFit();return;}
     const sideLeft=document.getElementById('side-left').getBoundingClientRect();
     const sideRight=document.getElementById('side-right').getBoundingClientRect();
     const isRow=getComputedStyle(shell).flexDirection.indexOf('row')===0;
@@ -1721,27 +2564,51 @@ Touz & Roll,0.8,0.8,0.8`;
   // écran), ou bureau. Sûr à appeler à tout moment (notamment côté guest réseau,
   // où le plein écran auto serait refusé car déclenché hors geste utilisateur).
   function adjustCanvas(){
+    const shell=document.getElementById('game-shell');
+    const shellVisible=shell&&getComputedStyle(shell).display!=='none'
+      &&shell.getBoundingClientRect().width>40;
     const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
     if(fsEl){fitCanvasFullscreen();return;}
-    // Hors plein écran : si on est sur un petit écran en paysage, on agrandit le
-    // canvas pour remplir l'espace dispo (même logique que le plein écran).
+    // En jeu, sur petit écran paysage, on agrandit le canvas (même hors plein écran).
     const smallLandscape=window.matchMedia('(orientation:landscape) and (max-height:560px)').matches;
-    if(smallLandscape){fitCanvasFullscreen();return;}
-    // Sinon (bureau ou portrait) : taille par défaut.
+    if(smallLandscape){
+      if(shellVisible)fitCanvasFullscreen();
+      else scheduleCanvasFit(); // shell pas prêt (portrait/transition) → on retente
+      return;
+    }
     resetCanvasDefault();
   }
+  // Reprogramme plusieurs tentatives d'ajustement, le temps que le layout se
+  // stabilise (réapparition de #game-shell, fin de transition d'orientation…).
+  let _fitTries=0,_fitTimer=null;
+  function scheduleCanvasFit(){
+    if(_fitTimer)return;
+    _fitTries=0;
+    const tick=()=>{
+      _fitTimer=null;_fitTries++;
+      const shell=document.getElementById('game-shell');
+      const ok=shell&&getComputedStyle(shell).display!=='none'
+        &&shell.getBoundingClientRect().width>40;
+      if(ok){adjustCanvas();return;}
+      if(_fitTries<20){_fitTimer=setTimeout(tick,200);} // ~4 s max
+    };
+    _fitTimer=setTimeout(tick,150);
+  }
+  window.scheduleCanvasFit=scheduleCanvasFit;
   window.adjustCanvas=adjustCanvas;
   window.fitCanvasFullscreen=fitCanvasFullscreen;
   window.resetCanvasDefault=resetCanvasDefault;
   document.addEventListener('fullscreenchange',()=>{
     const isFs=!!document.fullscreenElement;
     document.body.classList.toggle('is-fullscreen',isFs);
+    if(typeof netGrace==='function')netGrace();
     if(isFs){fitCanvasFullscreen();setTimeout(fitCanvasFullscreen,250);}
     else resetCanvasDefault();
   });
   document.addEventListener('webkitfullscreenchange',()=>{
     const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
     document.body.classList.toggle('is-fullscreen',!!fsEl);
+    if(typeof netGrace==='function')netGrace();
     if(fsEl){fitCanvasFullscreen();setTimeout(fitCanvasFullscreen,250);}else resetCanvasDefault();
   });
   window.addEventListener('resize',()=>{
@@ -1749,9 +2616,15 @@ Touz & Roll,0.8,0.8,0.8`;
     else if(document.body.classList.contains('in-game')){adjustCanvas();}
   });
   window.addEventListener('orientationchange',()=>{
+    if(typeof netGrace==='function')netGrace();
     if(document.body.classList.contains('in-game')){
-      adjustCanvas();setTimeout(adjustCanvas,300);
+      adjustCanvas();scheduleCanvasFit();
     }
+  });
+  // Retour d'arrière-plan (changement d'app, écran verrouillé puis rallumé) :
+  // le thread a pu être gelé → on tolère un délai avant de couper.
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'&&typeof netGrace==='function')netGrace();
   });
 
   window.startGame=function(){
@@ -1811,14 +2684,21 @@ Touz & Roll,0.8,0.8,0.8`;
     document.getElementById('menu-niveau1').style.display='flex';
     document.getElementById('menu-niveau2').style.display='none';
     document.getElementById('menu-solo').style.display='none';
-    if(gameMode==='challenge')gameMode='pvp'; // sortie du challenge → mode neutre
+    const mc=document.getElementById('menu-campagne');if(mc)mc.style.display='none';
+    {const mch=document.getElementById('menu-challenge');if(mch)mch.style.display='none';}
+    if(gameMode==='challenge'||gameMode==='campaign')gameMode='pvp'; // sortie → mode neutre
+    campStopAllExtra(); // coupe les couches musicales de campagne, rétablit la base
+    dialogueActive=false;dialogueQueue=[];dialogueOnDone=null;
+    {const dov=document.getElementById('dialogue-overlay');if(dov)dov.style.display='none';}
+    {const vs=document.getElementById('screen-versus');if(vs)vs.style.display='none';}
     document.getElementById('btn-pvp').classList.remove('active');
     document.getElementById('btn-pvr').classList.remove('active');
     document.getElementById('btn-pvc').classList.remove('active');
     document.getElementById('net-panel').style.display='none';
     document.getElementById('ai-config').style.display='none';
-    document.getElementById('team-names').style.display='flex';
-    document.getElementById('btn-start').style.display='block';
+    document.getElementById('team-names').style.display='none';
+    document.getElementById('btn-start').style.display='none';
+    {const bb=document.getElementById('btn-config-back');if(bb)bb.style.display='none';}
   };
 
   // ── Musique ─────────────────────────────────────────────
@@ -1828,11 +2708,147 @@ Touz & Roll,0.8,0.8,0.8`;
     if(!bgm)return;
     sonActive=!sonActive;
     bgm.muted=!sonActive;
+    // Applique le mute à toutes les couches campagne
+    ['snd-intro','snd-stress','snd-victory','snd-defeat'].forEach(id=>{
+      const a=document.getElementById(id);if(a)a.muted=!sonActive;
+    });
     document.getElementById('btn-son').textContent=sonActive?'🔊 Son':'🔇 Son';
   };
 
+  // ── Couches musicales de la campagne ────────────────────
+  // Une seule couche "exclusive" (intro/victoire/défaite) joue à la fois et met
+  // la musique de base en sourdine ; le stress se superpose à la base.
+  const CAMP_VOL={'snd-intro':0.55,'snd-stress':0.5,'snd-victory':0.6,'snd-defeat':0.6};
+  function _snd(id){return document.getElementById(id);}
+  function campAudioStop(id){
+    const a=_snd(id);if(!a)return;
+    try{a.pause();a.currentTime=0;}catch(e){}
+  }
+  function campAudioPlay(id){
+    const a=_snd(id);if(!a)return;
+    try{a.muted=!sonActive;a.volume=CAMP_VOL[id]||0.5;a.currentTime=0;a.play().catch(()=>{});}catch(e){}
+  }
+  // Met la musique de base en sourdine (true) ou la réactive (false)
+  function bgmDuck(on){
+    const bgm=_snd('bgm');if(!bgm)return;
+    // On ne touche pas au mute global du joueur : on baisse juste le volume.
+    bgm.volume=on?0.0:0.5;
+  }
+  // Coupe toutes les couches campagne (sortie de campagne / nettoyage)
+  function campStopAllExtra(){
+    ['snd-intro','snd-stress','snd-victory','snd-defeat'].forEach(campAudioStop);
+    bgmDuck(false);
+  }
+  // Démarre la couche "intro de niveau" (écran d'annonce + dialogues d'intro)
+  function campMusicIntro(){
+    campAudioStop('snd-victory');campAudioStop('snd-defeat');campAudioStop('snd-stress');
+    bgmDuck(true);
+    // Si l'intro joue déjà (ex : dialogue d'ouverture puis écran d'annonce), on ne
+    // la redémarre pas — évite un saut au début de la piste.
+    const a=_snd('snd-intro');
+    if(a&&!a.paused&&!a.ended)return;
+    campAudioPlay('snd-intro');
+  }
+  // Retour à la musique de base (début effectif du match)
+  function campMusicMatch(){
+    campAudioStop('snd-intro');campAudioStop('snd-victory');campAudioStop('snd-defeat');
+    campStressOn=false;campAudioStop('snd-stress');
+    bgmDuck(false);
+  }
+  // Démarre l'ambiance stressante (un joueur atteint 10 pts), remplace la base
+  let campStressOn=false;
+  function campMusicStress(){
+    if(campStressOn)return;
+    campStressOn=true;
+    bgmDuck(true); // le stress remplace la musique de base (pas de superposition)
+    campAudioPlay('snd-stress');
+  }
+  function campMusicStressStop(){
+    campStressOn=false;
+    campAudioStop('snd-stress');
+    // NB : on ne réactive pas la base ici. L'appelant décide de la suite
+    // (campMusicVictory/Defeat la gardent en sourdine ; campMusicMatch la rétablit).
+  }
+  // Fin de match : musique de victoire ou de défaite (par-dessus, base en sourdine)
+  function campMusicVictory(){
+    campMusicStressStop();campAudioStop('snd-intro');
+    bgmDuck(true);
+    campAudioPlay('snd-victory');
+  }
+  function campMusicDefeat(){
+    campMusicStressStop();campAudioStop('snd-intro');
+    bgmDuck(true);
+    campAudioPlay('snd-defeat');
+  }
+
+  // ── Sons d'impact synthétiques (Web Audio, sans fichier) ────
+  // Un « clac » de boules généré à la volée : bruit court filtré en passe-bande,
+  // dont le volume et la brillance dépendent de la force du choc. Pas de fichier
+  // à héberger. Le cochonnet rend un son plus mat et discret.
+  let audioCtx=null;
+  function getAudioCtx(){
+    if(audioCtx)return audioCtx;
+    try{const AC=window.AudioContext||window.webkitAudioContext;audioCtx=new AC();}catch(e){audioCtx=null;}
+    return audioCtx;
+  }
+  let lastImpactSnd=0; // anti-spam : évite une rafale de sons sur la même frame
+  // force : ~ vitesse d'approche (dot). soft=true pour le cochonnet (son mat).
+  // Sortie audio commune avec compresseur : permet de pousser fort le volume
+  // sans saturation désagréable (le compresseur écrête en douceur).
+  let sndOut=null;
+  function getSndOut(ctx){
+    if(sndOut)return sndOut;
+    try{
+      const comp=ctx.createDynamicsCompressor();
+      comp.threshold.value=-18;comp.knee.value=20;comp.ratio.value=4;
+      comp.attack.value=0.002;comp.release.value=0.1;
+      comp.connect(ctx.destination);
+      sndOut=comp;
+    }catch(e){sndOut=ctx.destination;}
+    return sndOut;
+  }
+  // kind : 'ball' (choc de boules, clac métallique), 'jack' (cochonnet, mat/doux),
+  //        'ground' (atterrissage au sol, toc grave et sourd).
+  function playImpactSound(force,kind){
+    if(!sonActive)return;
+    const ctx=getAudioCtx();if(!ctx)return;
+    if(ctx.state==='suspended')ctx.resume().catch(()=>{});
+    const now=ctx.currentTime;
+    if(now-lastImpactSnd<0.02)return; // au plus un son toutes les 20 ms
+    lastImpactSnd=now;
+    // Intensité normalisée 0..1 (un choc fort tourne autour de dot≈3-6)
+    const f=Math.max(0,Math.min(1,force/5));
+    if(f<0.04)return; // choc négligeable : pas de son
+    const isJack=(kind==='jack'), isGround=(kind==='ground');
+    const dur=isGround?0.08:(isJack?0.05:0.07);
+    // Bruit blanc court
+    const n=Math.floor(ctx.sampleRate*dur);
+    const buf=ctx.createBuffer(1,n,ctx.sampleRate);
+    const data=buf.getChannelData(0);
+    const envPow=isGround?2.0:(isJack?2.5:3.5);
+    for(let i=0;i<n;i++){
+      const env=Math.pow(1-i/n,envPow); // attaque immédiate, décroissance expo
+      data[i]=(Math.random()*2-1)*env;
+    }
+    const src=ctx.createBufferSource();src.buffer=buf;
+    // Timbre : boules = aigu brillant (métal) ; cochonnet = médium ; sol = grave sourd (terre)
+    const bp=ctx.createBiquadFilter();
+    if(isGround){bp.type='lowpass';bp.frequency.value=320+f*260;bp.Q.value=0.7;}
+    else if(isJack){bp.type='bandpass';bp.frequency.value=700+f*400;bp.Q.value=2;}
+    else{bp.type='bandpass';bp.frequency.value=1800+f*2200;bp.Q.value=1.2;}
+    const gain=ctx.createGain();
+    // Volumes ~×4 vs version précédente. Le compresseur en sortie évite la saturation.
+    const base=isGround?1.0:(isJack?0.7:1.5);
+    const vol=base*(0.3+f*0.7);
+    gain.gain.setValueAtTime(vol,now);
+    gain.gain.exponentialRampToValueAtTime(0.0001,now+dur);
+    src.connect(bp);bp.connect(gain);gain.connect(getSndOut(ctx));
+    src.start(now);src.stop(now+dur);
+  }
+
   // Init écran : menu au niveau 1, aucun mode activé
   equipes=parseCSV(EQUIPES_CSV);
+  campTeams=parseCampCSV(CAMPAGNE_CSV);
   populateTeamSelects();
   gameMode='pvp'; // mode par défaut (PvP local), sans activer les boutons du niveau 2
   selectAiTab('equipes');
@@ -1853,8 +2869,11 @@ Touz & Roll,0.8,0.8,0.8`;
     if(state==='aim'||state==='charge')updateMsg();
   });
 
+  // Modes où le Joueur 2 est piloté par l'IA (PvC et Campagne)
+  function isAiMode(){return gameMode==='pvc'||gameMode==='campaign';}
+
   function isMyTurn(){
-    if(gameMode==='pvc'&&cur===2)return false;
+    if(isAiMode()&&cur===2)return false;
     if(gameMode==='pvr'){const myP=netRole==='host'?1:2;return cur===myP;}
     return true;
   }
@@ -1876,10 +2895,32 @@ Touz & Roll,0.8,0.8,0.8`;
   };
 
   document.addEventListener('keydown',e=>{
+    // Écran d'annonce de match affiché : Espace/Entrée = Combattre, reste bloqué
+    const versusEl=document.getElementById('screen-versus');
+    if(versusEl&&versusEl.style.display==='flex'){
+      if(e.code==='Space'||e.key==='Enter'){e.preventDefault();versusGo();}
+      return;
+    }
+    // Dialogue RPG actif : Espace/Entrée avance, on bloque tout le reste
+    if(dialogueActive){
+      if(e.code==='Space'||e.key==='Enter'){e.preventDefault();advanceDialogue();}
+      return;
+    }
     // Touche A : toggle overlay règles (en jeu seulement)
     if(e.key==='a'||e.key==='A'){toggleRules();return;}
+    // Touche $ : TRICHE de test → 12 points au joueur 1 (hors réseau).
+    // Touche discrète, conservée temporairement pour tester l'enchaînement des
+    // matchs (marque le 13e à la main). À retirer en version finale.
+    if(e.key==='$'){
+      if(gameMode!=='pvr'&&document.body.classList.contains('in-game')){
+        scoreTotal[1]=12;updateScore();
+        setMsg('🛠️ Triche : 12 points. Marque le dernier point pour finir.');
+      }
+      return;
+    }
     if(e.code!=='Space')return;e.preventDefault();
     if(state==='ch-win'||state==='ch-lose'){challengeNewManche();return;}
+    if(state==='camp-win'||state==='camp-lose'||state==='camp-done'){campContinue();return;}
     if(['done','cancelled','match'].includes(state)){
       if(gameMode==='pvr'&&netRole==='guest')return; // guest attend l'hôte
       newManche();return;
@@ -1888,6 +2929,7 @@ Touz & Roll,0.8,0.8,0.8`;
     if(state==='aim'&&boules[cur]>0){state='charge';charge=0;chargeDir=1;}
   });
   document.addEventListener('keyup',e=>{
+    if(dialogueActive)return;
     if(e.code!=='Space')return;e.preventDefault();
     if(!isMyTurn())return;
     if(state==='charge')launch();
@@ -1907,9 +2949,11 @@ Touz & Roll,0.8,0.8,0.8`;
   }
   canvas.addEventListener('touchstart',e=>{
     e.preventDefault();
+    if(dialogueActive)return; // l'overlay de dialogue gère le tap
     const t=e.changedTouches[0];
     setAimFromPoint(t.clientX,t.clientY);
     if(state==='ch-win'||state==='ch-lose'){challengeNewManche();return;}
+    if(state==='camp-win'||state==='camp-lose'||state==='camp-done'){campContinue();return;}
     if(['done','cancelled','match'].includes(state)){
       if(gameMode==='pvr'&&netRole==='guest')return;
       newManche();return;
@@ -1919,11 +2963,13 @@ Touz & Roll,0.8,0.8,0.8`;
   },{passive:false});
   canvas.addEventListener('touchmove',e=>{
     e.preventDefault();
+    if(dialogueActive)return;
     const t=e.changedTouches[0];
     setAimFromPoint(t.clientX,t.clientY);
   },{passive:false});
   canvas.addEventListener('touchend',e=>{
     e.preventDefault();
+    if(dialogueActive)return;
     if(!isMyTurn())return;
     if(state==='charge')launch();
   },{passive:false});
@@ -1972,6 +3018,16 @@ Touz & Roll,0.8,0.8,0.8`;
         for(const o of chObstacles)if(o.active)bodies.push(o);
         updateGround(bodies);
         chCheckHit();
+        // Si la cible quitte le terrain, c'est qu'une boule l'a percutée : touche
+        // valide → on conclut TOUT DE SUITE (gagné), sans attendre l'arrêt des boules
+        // (évite la longue fin de course quand tout part au loin), comme la sortie
+        // du cochonnet en jeu normal.
+        if(chTarget&&chTarget.active&&!inTerrain(chTarget.x,chTarget.y)){
+          chTarget.active=false;chTarget.vx=0;chTarget.vy=0;
+          chHit=true;
+          if(state==='flying')challengeResolve();
+          return;
+        }
         for(const b of balls){
           if(b.active&&b.phase==='rolling'&&!inTerrain(b.x,b.y)){b.active=false;b.vx=0;b.vy=0;}
         }
@@ -1992,7 +3048,7 @@ Touz & Roll,0.8,0.8,0.8`;
       }
       if(jack.phase==='rolling'&&!inTerrain(jack.x,jack.y)){jack.vx=0;jack.vy=0;handleJackOut();}
       if(allStopped([...balls,jack])){
-        if(!['done','cancelled','match'].includes(state))nextTurn();
+        if(!isRoundLocked())nextTurn();
         netSyncAfterStop();
       }
     }
@@ -2238,7 +3294,7 @@ Touz & Roll,0.8,0.8,0.8`;
     ctx.fillStyle='#1a1a1a';ctx.fillRect(0,0,SW,SH);
     drawTerrain();
 
-    if((state==='aim'||state==='charge')&&!(gameMode==='pvc'&&cur===2)){
+    if((state==='aim'||state==='charge')&&!(isAiMode()&&cur===2)){
       const hRaw=heightLevel,barH=140,barW=11,barX=14,barY=SH/2-barH/2;
       // fond
       ctx.fillStyle='rgba(0,0,0,0.40)';ctx.fillRect(barX,barY,barW,barH);
@@ -2316,7 +3372,7 @@ Touz & Roll,0.8,0.8,0.8`;
       if(b.phase!=='flying'||!b.active)continue;
       drawBallAt(b.x,b.y,b.z,BR_BASE*(1+(b.z/80)*BR_FLY_MAX*b.hNorm),b.player,false,1);
     }
-    if((state==='aim'||state==='charge')&&cur&&!(gameMode==='pvc'&&cur===2)){
+    if((state==='aim'||state==='charge')&&cur&&!(isAiMode()&&cur===2)){
       drawTrajectory();
       drawBallAt(ORIGIN.x,ORIGIN.y,0,BR_BASE*1.5,cur,true,0.7);
     }
@@ -2326,6 +3382,32 @@ Touz & Roll,0.8,0.8,0.8`;
       ctx.fillStyle='#1a1a1a';rrect(gx,gy,gw,gh,3);ctx.fill();
       ctx.fillStyle='hsl('+Math.round(120-charge*120)+',80%,50%)';rrect(gx,gy,gw*charge,gh,3);ctx.fill();
       ctx.font='bold 10px sans-serif';ctx.fillStyle='white';ctx.textAlign='center';ctx.fillText('PUISSANCE',SW/2,gy+10);
+    }
+    if(state==='camp-win'||state==='camp-lose'||state==='camp-done'){
+      const bandH=92;
+      ctx.fillStyle='rgba(0,0,0,0.78)';ctx.fillRect(0,SH/2-bandH/2,SW,bandH);
+      ctx.textAlign='center';
+      let line1,line2;
+      const total=campOrder.length;
+      if(state==='camp-done'){
+        line1='🏆 CAMPAGNE TERMINÉE !';
+        line2=(campHardcore?'💀 Hardcore : ':'')+'Toutes les équipes battues ! · Espace';
+        ctx.fillStyle='#ffe87a';
+      }else if(state==='camp-win'){
+        line1='✅ '+teamNames[2]+' battue !';
+        line2='Adversaire '+(campIndex+1)+' / '+total+' · Espace pour continuer';
+        ctx.fillStyle='#7dca7d';
+      }else{
+        line1='❌ DÉFAITE';
+        line2=campHardcore
+          ?('💀 Série terminée · Record : '+campGetHardcoreBest()+' · Espace = recommencer')
+          :('Tu peux réessayer · Espace');
+        ctx.fillStyle='#e08080';
+      }
+      ctx.font='bold 18px sans-serif';
+      ctx.fillText(line1,SW/2,SH/2-10);
+      ctx.font='13px sans-serif';ctx.fillStyle='rgba(255,255,255,0.80)';
+      ctx.fillText(line2,SW/2,SH/2+16);
     }
     if(state==='ch-win'||state==='ch-lose'){
       const bandH=88;
@@ -2492,12 +3574,12 @@ Touz & Roll,0.8,0.8,0.8`;
           //  serait refusé ici). On force donc un ajustement du canvas.
           document.body.classList.add('in-game');
           scoreTotal={1:0,2:0};
-          balls=[];jack={x:WORLD_W/2,y:WORLD_H/2,z:0,vx:0,vy:0,vz:0,mass:2.8,phase:'rolling',active:true};
+          balls=[];jack={x:WORLD_W/2,y:WORLD_H/2,z:0,vx:0,vy:0,vz:0,mass:1.96,isJack:true,phase:'rolling',active:true};
           boules={1:6,2:6};state='aim';cur=1;
           updateScore();
           setMsg('⏳ En attente de la partie…');
           if(!raf)loop();
-          adjustCanvas();setTimeout(adjustCanvas,300);
+          adjustCanvas();scheduleCanvasFit();
         });
         netConn.on('error',e=>document.getElementById('net-join-status').textContent='Erreur: '+e);
       });
@@ -2518,19 +3600,37 @@ Touz & Roll,0.8,0.8,0.8`;
   let netHeartbeatTimer=null;   // envoi périodique de pings
   let netWatchdogTimer=null;    // déclenche la déco si aucun pong/message reçu à temps
   let netLastSeen=0;            // timestamp du dernier message reçu de l'adversaire
-  const NET_PING_INTERVAL=2000; // on envoie un ping toutes les 2s
-  const NET_TIMEOUT=7000;       // si rien reçu depuis 7s → connexion considérée perdue
+  let netWatchdogLastTick=0;    // dernier passage du watchdog (pour détecter les gels)
+  let netGraceUntil=0;          // période de grâce après un gel (plein écran, arrière-plan…)
+  const NET_PING_INTERVAL=1500; // on envoie un ping toutes les 1,5 s
+  const NET_TIMEOUT=12000;      // si rien reçu depuis 12 s → connexion perdue
+  const NET_FREEZE_GAP=2500;    // un écart > 2,5 s entre 2 ticks = gel (transition mobile)
+  const NET_GRACE=9000;         // après un gel, on tolère 9 s de plus avant de couper
 
   function netStartHeartbeat(){
     netStopHeartbeat();
     netLastSeen=Date.now();
+    netWatchdogLastTick=Date.now();
+    netGraceUntil=0;
     netHeartbeatTimer=setInterval(()=>{
       if(netConn&&netConn.open){
         try{netConn.send(JSON.stringify({type:'ping'}));}catch(e){}
       }
     },NET_PING_INTERVAL);
     netWatchdogTimer=setInterval(()=>{
-      if(netReady&&Date.now()-netLastSeen>NET_TIMEOUT){
+      const now=Date.now();
+      // Détection de gel : si le watchdog lui-même a été suspendu (plein écran,
+      // bascule d'app, rotation…), on n'en tient pas rigueur à l'adversaire et on
+      // ouvre une période de grâce le temps que les pings reprennent.
+      const sinceTick=now-netWatchdogLastTick;
+      netWatchdogLastTick=now;
+      if(sinceTick>NET_FREEZE_GAP){
+        netGraceUntil=now+NET_GRACE;
+        netLastSeen=now; // on repart de zéro côté réception après le gel
+        return;
+      }
+      if(now<netGraceUntil)return; // encore en période de grâce
+      if(netReady&&now-netLastSeen>NET_TIMEOUT){
         netHandleLost();
       }
     },1000);
@@ -2539,6 +3639,16 @@ Touz & Roll,0.8,0.8,0.8`;
     if(netHeartbeatTimer){clearInterval(netHeartbeatTimer);netHeartbeatTimer=null;}
     if(netWatchdogTimer){clearInterval(netWatchdogTimer);netWatchdogTimer=null;}
   }
+  // Ouvre une periode de grace (a appeler avant un evenement qui gele le thread :
+  // passage en plein ecran, rotation, retour d'arriere-plan...).
+  function netGrace(ms){
+    if(!netReady)return;
+    const now=Date.now();
+    netGraceUntil=Math.max(netGraceUntil,now+(ms||NET_GRACE));
+    netLastSeen=now;
+    netWatchdogLastTick=now;
+  }
+  window.netGrace=netGrace;
   // Appelé une seule fois quand la connexion est perdue (close, error, timeout ou bye)
   function netHandleLost(){
     if(!netReady)return;
@@ -2594,6 +3704,7 @@ Touz & Roll,0.8,0.8,0.8`;
       try{netConn.send(JSON.stringify({type:'teamname',player:1,name:teamNames[1],pseudo:netPseudos[1]}));}catch(e){}
     }
     newManche(); // hôte génère le jack, envoie l'état via netSyncAfterStop
+    adjustCanvas();scheduleCanvasFit();
   }
 
   // Sérialise l'état complet du jeu
@@ -2669,7 +3780,7 @@ Touz & Roll,0.8,0.8,0.8`;
   function loop(){update();draw();syncEndArb();raf=requestAnimationFrame(loop);}
   scoreTotal={1:0,2:0};
   mouse={x:SW/2,y:SH*0.55};state='aim';balls=[];boules={1:6,2:6};cur=1;
-  jack={x:(1*SCALE)+Math.random()*(WORLD_W-2*SCALE),y:(7.5*SCALE)+Math.random()*((12-7.5)*SCALE),z:0,vx:0,vy:0,vz:0,mass:2.8,phase:'rolling',active:true};
+  jack={x:(1*SCALE)+Math.random()*(WORLD_W-2*SCALE),y:(7.5*SCALE)+Math.random()*((12-7.5)*SCALE),z:0,vx:0,vy:0,vz:0,mass:1.96,isJack:true,phase:'rolling',active:true};
   loop();
 })();
 </script>
