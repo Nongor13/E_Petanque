@@ -3183,12 +3183,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     }
     // Touche A : toggle overlay règles (en jeu seulement)
     if(e.key==='a'||e.key==='A'){toggleRules();return;}
-    // B : TEMP debug -> saut direct au niveau des Frelons (ignoré pendant une saisie)
-    if(e.key==='b'||e.key==='B'){
-      const ae=document.activeElement;
-      if(!ae||(ae.tagName!=='INPUT'&&ae.tagName!=='TEXTAREA'))campDebugFrelons();
-      return;
-    }
+    
     // Touche $ : TRICHE de test → 12 points au joueur 1 (hors réseau).
     // Touche discrète, conservée temporairement pour tester l'enchaînement des
     // matchs (marque le 13e à la main). À retirer en version finale.
