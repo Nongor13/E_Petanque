@@ -486,11 +486,13 @@ margin-top:12px;
   <div id="menu-campagne" style="display:none;flex-direction:column;gap:14px;align-items:center;">
     <div style="font-size:12px;color:#ffe87a;font-family:'Press Start 2P',monospace;letter-spacing:2px;text-shadow:2px 2px #000;">🏆 CAMPAGNE</div>
     <div id="camp-progress-info" style="font-size:8px;color:#aaa;font-family:'Press Start 2P',monospace;line-height:1.8;max-width:300px;text-align:center;"></div>
-    <button class="sel-btn" id="btn-camp-normal" onclick="startCampagne(false)">▶ Mode Normal<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">on peut perdre sans reculer</span></button>
-    <button class="sel-btn" id="btn-camp-hardcore" onclick="startCampagne(true)">💀 Mode Hardcore<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">une défaite = retour au début</span></button>
+    <button class="sel-btn" id="btn-camp-normal" onclick="startCampagne('normal')">▶ Mode Normal<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">IA classique · on peut perdre sans reculer</span></button>
+    <button class="sel-btn" id="btn-camp-transpi" onclick="startCampagne('transpi')">💦 Mode Transpi<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">IA tactique · on peut perdre sans reculer</span></button>
+    <button class="sel-btn" id="btn-camp-hardcore" onclick="startCampagne('hardcore')">💀 Mode Hardcore<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">IA tactique · une défaite = retour au début</span></button>
     <button id="btn-camp-reset" onclick="resetCampagneNormal()" style="display:none;font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#3a1a1a;border:1px solid #884444;color:#d0a0a0;cursor:pointer;">↺ Recommencer depuis le début</button>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
       <button onclick="openCampClassement('normal')" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#1a2a40;border:2px solid #c8a020;color:#ffe87a;cursor:pointer;">🏆 Classement Normal</button>
+      <button onclick="openCampClassement('transpi')" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#2a2440;border:2px solid #c8a020;color:#ffe87a;cursor:pointer;">💦 Classement Transpi</button>
       <button onclick="openCampClassement('hardcore')" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#2a1a1a;border:2px solid #c8a020;color:#ffe87a;cursor:pointer;">💀 Classement Hardcore</button>
     </div>
     <button onclick="showSubMenuSolo()" style="font-size:9px;font-family:'Press Start 2P',monospace;padding:8px 16px;background:#1a1a30;border:1px solid #555;color:#aaa;cursor:pointer;">← Retour</button>
@@ -531,15 +533,13 @@ margin-top:12px;
     </div>
   </div>
   <div id="ai-config" style="display:none;flex-direction:column;gap:10px;width:300px;">
-    <div style="display:flex;gap:6px;">
-      <button class="ai-tab" id="tab-auto"   onclick="selectAiTab('equipes')">📊 Paramètres automatiques</button>
-      <button class="ai-tab" id="tab-manual" onclick="selectAiTab('manual')">🎛️ Paramètres manuels</button>
-    </div>
-    <div id="pane-manual" style="display:none;flex-direction:column;gap:8px;">
-      <div style="display:flex;gap:6px;justify-content:center;">
-        <button class="diff-btn" id="diff-facile"  onclick="selectDiff('facile')">😊 Facile</button>
-        <button class="diff-btn" id="diff-moyen"   onclick="selectDiff('moyen')">🎯 Moyen</button>
-        <button class="diff-btn" id="diff-expert"  onclick="selectDiff('expert')">🔥 Expert</button>
+    <div style="font-size:9px;color:#aaa;text-align:center;font-family:'Press Start 2P',monospace;">▸ Difficulté</div>
+    <div id="pane-manual" style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
+        <button class="diff-btn" id="diff-facile"    style="flex:1 1 40%" onclick="selectDiff('facile')">😊 Facile</button>
+        <button class="diff-btn" id="diff-normal"    style="flex:1 1 40%" onclick="selectDiff('normal')">🎯 Normal</button>
+        <button class="diff-btn" id="diff-difficile" style="flex:1 1 40%" onclick="selectDiff('difficile')">🔥 Difficile</button>
+        <button class="diff-btn" id="diff-transpi"   style="flex:1 1 40%" onclick="selectDiff('transpi')">💦 Transpi</button>
       </div>
       <div id="diff-label" style="font-size:9px;color:#aaa;text-align:center;min-height:20px;font-family:'Press Start 2P',monospace;"></div>
     </div>
@@ -683,6 +683,12 @@ margin-top:12px;
   // ── Mode Campagne solo ──
   let campIndex=0;        // index de l'équipe en cours d'affrontement
   let campHardcore=false; // mode hardcore (une défaite = retour à l'équipe 1)
+  let campMode='normal';   // 'normal' | 'transpi' | 'hardcore'
+  // Événements scénarisés des 2 derniers niveaux (réinitialisés à chaque match)
+  let campReducedBoules=false; // Frelons : 3 boules/mène pour le joueur
+  let campHideGauge=false;     // USLPLP : jauge de puissance masquée
+  let campEvtFrelonsDone=false, campEvtBossDone=false;
+  let campEngine='classic'; // moteur IA selon le mode de campagne
   let campResult=null;    // 'win' | 'lose' | 'done' (pour le bandeau de fin)
   let campOrder=[];       // ordre des équipes affrontées (indices dans `equipes`)
   let campResetSession=false; // true = on vient de réinitialiser, ne pas réadopter le cloud
@@ -692,6 +698,8 @@ margin-top:12px;
 
   // ── Config IA : stockée en termes terrain (analyse, tir, pointage) ──
   let aiRaw={analyse:0.5,tir:0.5,pointage:0.5};
+  // Moteur IA actif : 'classic' (historique) ou 'smart' (tactique, points 1+3).
+  let aiEngine='classic';
 
   // Mapping terrain → σ selon l'action courante
   // niveau élevé → σ petit → précis
@@ -725,7 +733,10 @@ margin-top:12px;
     // plombé ne commence vraiment qu'à partir de heightLevel≈0.75
     return Math.pow(Math.max(0,Math.min(1,heightLevel)),1.8);
   }
-  function effectiveR(b){return b.mass<0.5?JACK_R_COL:BALL_R_COL;}
+  function effectiveR(b){
+    if(b.isObstacle)return BALL_R_COL*1.9; // barrage plus epais (challenge) : moins de tunneling
+    return b.mass<0.5?JACK_R_COL:BALL_R_COL;
+  }
 
   function rrect(x,y,w,h,r){
     r=Math.min(r,w/2,h/2);ctx.beginPath();
@@ -774,13 +785,22 @@ margin-top:12px;
   }
   const SLEEP_SPEED=0.08; // sous cette vitesse, une boule est considérée arrêtée et figée
   function updateGround(bodies){
-    for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++)resolveCollision(bodies[i],bodies[j]);
+    // Sous-pas adaptatif : une boule rapide etait testee position-par-position
+    // et pouvait traverser un obstacle sans collision (tunneling). On decoupe le
+    // deplacement en sous-pas assez courts pour toujours detecter le contact.
+    let maxSpeed=0;
+    for(const b of bodies){const sp=Math.abs(b.vx)+Math.abs(b.vy);if(sp>maxSpeed)maxSpeed=sp;}
+    const steps=Math.max(1,Math.min(8,Math.ceil(maxSpeed/(BALL_R_COL*0.9))));
+    for(let s=0;s<steps;s++){
+      for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++)resolveCollision(bodies[i],bodies[j]);
+      for(const b of bodies){
+        if(Math.abs(b.vx)<SLEEP_SPEED&&Math.abs(b.vy)<SLEEP_SPEED){b.vx=0;b.vy=0;continue;}
+        b.x+=b.vx/steps;b.y+=b.vy/steps;
+      }
+    }
+    // Friction appliquee une seule fois par frame (deceleration inchangee).
     for(const b of bodies){
-      // Une boule trop lente est franchement arrêtée (vitesse remise à zéro) : elle
-      // ne bouge plus tant qu'une collision ne la réveille pas. Évite qu'une vitesse
-      // résiduelle « finisse » son déplacement lors d'un tour suivant.
-      if(Math.abs(b.vx)<SLEEP_SPEED&&Math.abs(b.vy)<SLEEP_SPEED){b.vx=0;b.vy=0;continue;}
-      b.x+=b.vx;b.y+=b.vy;
+      if(b.vx===0&&b.vy===0)continue;
       const f=b.rollFric||ROLL_FRIC;b.vx*=f;b.vy*=f;
     }
   }
@@ -979,6 +999,157 @@ margin-top:12px;
     return{vx:Math.cos(noisyAngle)*vxy,vy:Math.sin(noisyAngle)*vxy,vz,hNorm:noisyHNorm};
   }
 
+  // ── IA « tactique » (moteur smart : points 1 + 3) ────────────────────────
+  // Point 3 : bruit d'exécution non-linéaire, plancher plus bas → le haut de la
+  // courbe (0.7→1.0) se distingue vraiment et le boss devient quasi déterministe.
+  function sigmaSmart(level){return 0.03+0.34*Math.pow(1-level,1.7);}
+  function getNoiseParamsSmart(isTir){
+    if(isTir){
+      return{sAngle:sigmaSmart(aiRaw.tir),sPower:sigmaSmart(aiRaw.tir),sHeight:0.03};
+    }
+    return{
+      sAngle :sigmaSmart(aiRaw.pointage),
+      sPower :sigmaSmart(aiRaw.pointage)*0.7,
+      sHeight:sigmaSmart(aiRaw.pointage)
+    };
+  }
+  function applyNoiseSmart(shot,isTir){
+    const{sAngle,sPower,sHeight}=getNoiseParamsSmart(isTir);
+    const noisyAngle =shot.angle+clampedGauss(sAngle)*0.22;
+    const noisyCharge=Math.max(0,Math.min(1,shot.charge+clampedGauss(sPower)*0.18));
+    const noisyHNorm =Math.max(0,Math.min(1,shot.hNorm+clampedGauss(sHeight)*0.14));
+    const speed=2+noisyCharge*14,vz=noisyHNorm*(2+noisyCharge*9),vxy=speed*(1-noisyHNorm*0.3);
+    return{vx:Math.cos(noisyAngle)*vxy,vy:Math.sin(noisyAngle)*vxy,vz,hNorm:noisyHNorm};
+  }
+
+  // Point 1 : on évalue la VALEUR du plateau résultant (est-ce que je tiens le
+  // point, et de combien de boules), au lieu de la seule distance brute.
+  // L'IA est le joueur 2. Score plus haut = meilleur pour elle.
+  function boardValue(hb){
+    const p2=[],p1=[];
+    for(const b of hb){
+      if(!b.active||b.phase!=='rolling')continue;
+      const d=dist2(b,jack);
+      if(b.player===2)p2.push(d); else if(b.player===1)p1.push(d);
+    }
+    const myBest =p2.length?Math.min.apply(null,p2):Infinity;
+    const oppBest=p1.length?Math.min.apply(null,p1):Infinity;
+    let held=0; for(const d of p2){ if(d<oppBest)held++; }
+    const holds=myBest<oppBest;
+    const closeness=isFinite(myBest)?myBest:(WORLD_H||600);
+    // Tenir le point domine, puis nombre de points tenus, puis proximité.
+    return (holds?10000:0)+held*1000-closeness;
+  }
+
+  const RISK_SAMPLES=7; // tirages bruités pour estimer la valeur ESPÉRÉE d'un coup
+
+  // Valeur ESPÉRÉE d'un pointage sous le propre bruit d'exécution de l'IA : on rejoue
+  // le coup plusieurs fois avec le bruit et on moyenne. Une main imprécise (bas niveau)
+  // pénalise les coups risqués ; une main sûre (haut niveau) peut oser.
+  function expectedPointValue(shot,obstacles,rolling){
+    let sum=0;
+    for(let k=0;k<RISK_SAMPLES;k++){
+      const nz=applyNoiseSmart(shot,false);
+      const r=simulateLaunch(nz.vx,nz.vy,nz.vz,nz.hNorm,obstacles);
+      if(!r){ sum+=boardValue(rolling); continue; } // sortie de terrain : boule perdue
+      sum+=boardValue(rolling.concat([{active:true,phase:'rolling',player:2,x:r.x,y:r.y}]))-r.penalty*5;
+    }
+    return sum/RISK_SAMPLES;
+  }
+
+  // Valeur ESPÉRÉE d'un tir : réussite = cible retirée ; raté = la boule finit sa course
+  // (souvent loin) et la cible reste. Un tir peu fiable devient donc peu payant.
+  function expectedShootValue(shot,target,obstacles,rolling){
+    const hitTarget={x:target.x,y:target.y,r:BR_BASE*2.2};
+    const removed=rolling.filter(b=>b!==target);
+    let sum=0;
+    for(let k=0;k<RISK_SAMPLES;k++){
+      const nz=applyNoiseSmart(shot,true);
+      const r=simulateLaunch(nz.vx,nz.vy,nz.vz,nz.hNorm,obstacles,hitTarget);
+      if(r&&r.hit){ sum+=boardValue(removed); }
+      else if(r){ sum+=boardValue(rolling.concat([{active:true,phase:'rolling',player:2,x:r.x,y:r.y}])); }
+      else { sum+=boardValue(rolling); }
+    }
+    return sum/RISK_SAMPLES;
+  }
+
+  // Meilleur POINTAGE : passe grossière (déterministe) pour présélectionner les
+  // candidats, puis re-classement par valeur ESPÉRÉE (conscience du risque).
+  function smartBestPoint(){
+    const obstacles=balls.filter(b=>b.active&&b.phase==='rolling'&&b.player===1);
+    const rolling  =balls.filter(b=>b.active&&b.phase==='rolling');
+    const baseAngle=Math.atan2(jack.y-ORIGIN.y,jack.x-ORIGIN.x);
+    const hNormCands=[0.08,0.18,0.28,0.38,0.50,0.65];
+    const angleOffs =[0,-0.055,-0.11,0.055,0.11];
+    const cands=[];
+    for(const hN of hNormCands){
+      for(const dA of angleOffs){
+        const angle=baseAngle+dA;
+        for(let i=0;i<=60;i++){
+          const charge=i/60,speed=2+charge*14;
+          const vz=hN*(2+charge*9),vxy=speed*(1-hN*0.3);
+          const r=simulateLaunch(Math.cos(angle)*vxy,Math.sin(angle)*vxy,vz,hN,obstacles);
+          if(!r)continue;
+          const hb=rolling.concat([{active:true,phase:'rolling',player:2,x:r.x,y:r.y}]);
+          cands.push({value:boardValue(hb)-r.penalty*5,shot:{angle,charge,hNorm:hN}});
+        }
+      }
+    }
+    if(!cands.length)return null;
+    cands.sort((a,b)=>b.value-a.value);
+    let best=null;
+    for(const c of cands.slice(0,10)){
+      const ev=expectedPointValue(c.shot,obstacles,rolling);
+      if(!best||ev>best.value){best={value:ev,shot:c.shot};}
+    }
+    return best;
+  }
+
+  // Meilleur TIR : on trouve un tir touchant (déterministe) par cible tirable, puis on
+  // l'évalue par sa valeur ESPÉRÉE (les ratés dus au bruit comptent), en pénalisant
+  // encore les tirs qui frôlent des obstacles.
+  function smartBestShoot(){
+    const oppBalls=balls.filter(b=>b.active&&b.phase==='rolling'&&b.player===1);
+    const SHOOT_MAX_DIST=1.5*SCALE;
+    const shootable=oppBalls.filter(b=>dist2(b,jack)<=SHOOT_MAX_DIST);
+    if(!shootable.length)return null;
+    const rolling=balls.filter(b=>b.active&&b.phase==='rolling');
+    let best=null;
+    for(const target of shootable){
+      const baseAngle=Math.atan2(target.y-ORIGIN.y,target.x-ORIGIN.x);
+      const hitTarget={x:target.x,y:target.y,r:BR_BASE*2.2};
+      const obstacles=oppBalls.filter(b=>Math.abs(b.x-target.x)>1||Math.abs(b.y-target.y)>1);
+      let shotBest=null;
+      for(const dA of [0,-0.04,-0.08,0.04,0.08]){
+        const angle=baseAngle+dA;
+        for(let i=45;i<=60;i++){
+          const charge=i/60,speed=2+charge*14;
+          const hN=0.05,vz=hN*(2+charge*9),vxy=speed*(1-hN*0.3);
+          const r=simulateLaunch(Math.cos(angle)*vxy,Math.sin(angle)*vxy,vz,hN,obstacles,hitTarget);
+          if(!r||!r.hit)continue;
+          const sc=r.penalty*80+Math.abs(dA)*10;
+          if(!shotBest||sc<shotBest.sc){shotBest={sc,shot:{angle,charge,hNorm:hN}};}
+        }
+      }
+      if(!shotBest)continue; // pas de tir propre sur cette cible
+      const ev=expectedShootValue(shotBest.shot,target,obstacles,rolling)-shotBest.sc*0.5;
+      if(!best||ev>best.value){best={value:ev,shot:shotBest.shot,target};}
+    }
+    return best;
+  }
+
+  // Décision smart : compare le meilleur pointage et le meilleur tir par valeur
+  // de plateau, respecte le garde-fou des 3 tirs/manche, choisit le plus payant.
+  function smartPlan(){
+    const canShoot=aiTirsManche<3;
+    const point=smartBestPoint();
+    const shoot=canShoot?smartBestShoot():null;
+    if(shoot&&(!point||shoot.value>point.value)){return{isTir:true,shot:shoot.shot};}
+    if(point){return{isTir:false,shot:point.shot};}
+    const baseAngle=Math.atan2(jack.y-ORIGIN.y,jack.x-ORIGIN.x);
+    return{isTir:false,shot:{angle:baseAngle,charge:0.55,hNorm:0.18}};
+  }
+
   function aiTurn(){
     setMsg(' La Machine réfléchit…');
     setTimeout(()=>{
@@ -994,6 +1165,14 @@ margin-top:12px;
         return;
       }
       // Garde-fou : si l'IA a déjà tiré 3 fois cette manche, elle pointe uniquement
+      if(aiEngine==='smart'){
+        const plan=smartPlan();
+        if(plan.isTir)aiTirsManche++;
+        const noisy=applyNoiseSmart(plan.shot,plan.isTir);
+        setMsg('La Machine '+(plan.isTir?'tire sur une boule 🎯':'pointe vers le cochonnet 🏹'));
+        setTimeout(()=>executeLaunch(noisy.vx,noisy.vy,noisy.vz,noisy.hNorm),300);
+        return;
+      }
       let{action,target}=analyzeBoard();
       if(action==='shoot'&&aiTirsManche>=3){
         action='point';
@@ -1116,6 +1295,7 @@ margin-top:12px;
     const scoreStr=scoreTotal[1]+' – '+scoreTotal[2];
     const mancheMsg=player&&pts>0?teamLabel(player)+' marque '+pts+' pt'+(pts>1?'s':'')+'  ·  '+scoreStr:'Manche nulle · '+scoreStr;
     setMsg('  ' + mancheMsg+'  —  Appuyer sur Espace pour la prochaine mène');
+    campCheckScriptedEvent();
   }
   let lastWinner=0; // équipe qui lance en premier à la prochaine manche
 
@@ -1164,7 +1344,7 @@ margin-top:12px;
       matchRecorded=false; // nouvelle partie → on pourra ré-enregistrer
     }
     if(raf)cancelAnimationFrame(raf);
-    state='aim';mouse={x:SW/2,y:SH*0.55};charge=0;chargeDir=1;balls=[];boules={1:6,2:6};heightLevel=0.15;
+    state='aim';mouse={x:SW/2,y:SH*0.55};charge=0;chargeDir=1;balls=[];boules={1:6,2:6};if(campReducedBoules)boules[1]=4;heightLevel=0.15;
     aiTirsManche=0;
     cur=lastWinner||1;
     const jackX=(1*SCALE)+Math.random()*(WORLD_W-2*SCALE);
@@ -1255,27 +1435,20 @@ margin-top:12px;
         {a:'Corentin',  t:"Je m'ennuie tellement que j'en ai la flemme de me baisser pour ramasser les boules. Je veux un aimant."},
         {a:'Guillaume', t:"*soupir*..."},
       ],
-      30:[
+      31:[
         {a:'Guillaume', t:"Niveau 30... Bravo, je n'y croyais pas. Tu y es presque."},
         {a:'Corentin',  t:"Encore quelques victoires et on te rencontrera. Mais pas avant."},
       ],
-      31:[
+      32:[
         {a:'Corentin',  t:"Plus que deux équipes avant nous. Tu sens la pression ?"},
         {a:'Guillaume', t:"Le moment approche."},
+        
       ],
-      32:[
+      33:[
         {a:'Guillaume', t:"L'avant-dernière. La dernière marche avant l'USLPLP."},
         {a:'Corentin',  t:"Les Frelons. Tu te souviens ? On les a battus combien de fois ?"},
         {a:'Guillaume', t:"Je n'ai pas assez de doigts pour compter Corentin."},
         {a:'Corentin', t:"Exactement !"},
-        
-      ],
-      33:[
-        {a:'Corentin',  t:"Et vous voilà."},
-        {a:'Guillaume', t:"33 victoires. Tu es presque une légende."},
-        {a:'Corentin',  t:"Il te reste un soucis : nous."},
-        {a:'Guillaume', t:"On a pris goût au fauteuil de champion. On ne le lâchera pas."},
-        {a:'Corentin',  t:"Dégaine tes boules. J'attends ce moment depuis trop longtemps."},
       ],
     },
     // ───────── JALON (ancien, conservé en secours) ─────────
@@ -1287,11 +1460,11 @@ margin-top:12px;
     ],
     // ───────── PREBOSS : juste avant l'USLPLP ─────────
     preboss:[
-      {a:'Guillaume', t:"Te voilà. Tu as vraiment battu tout le monde."},
-      {a:'Corentin',  t:"Tout le monde, sauf nous."},
-      {a:'Guillaume', t:"L'USLPLP n'a jamais perdu. Jamais."},
-      {a:'Corentin',  t:"Et ce n'est pas aujourd'hui que ça va changer."},
-      {a:'Guillaume', t:"Montre-nous ce que tu vaux. En place."},
+      {a:'Corentin',  t:"Et vous voilà."},
+      {a:'Guillaume', t:"33 victoires. Tu es presque une légende."},
+      {a:'Corentin',  t:"Il te reste un soucis : nous."},
+      {a:'Guillaume', t:"On a pris goût au fauteuil de champion. On ne le lâchera pas."},
+      {a:'Corentin',  t:"Dégaine tes boules. J'attends ce moment depuis trop longtemps."},
     ],
     // ───────── VICTOIRE : après avoir battu l'USLPLP ─────────
     victoire:[
@@ -1328,7 +1501,7 @@ margin-top:12px;
     // les autres locuteurs appartiennent à l'équipe adverse courante.
     let team='';
     if(author==='Guillaume'||author==='Corentin'){team='USLPLP';}
-    else if(gameMode==='campaign'&&teamNames[2]){team=teamNames[2];}
+    else if(author&&gameMode==='campaign'&&teamNames[2]){team=teamNames[2];}
     document.getElementById('dialogue-author').textContent=author+(team?(' — '+team):'');
     document.getElementById('dialogue-author').style.color=DLG_COLORS[author]||'#ffe87a';
     document.getElementById('dialogue-text').textContent=line.t||'';
@@ -1364,6 +1537,9 @@ margin-top:12px;
   function campSetHardcoreBest(n){try{localStorage.setItem(CAMP_HC_KEY,String(n));}catch(e){}}
   function campGetHardcoreProgress(){try{return parseInt(localStorage.getItem(CAMP_HC_PROG_KEY))||0;}catch(e){return 0;}}
   function campSetHardcoreProgress(n){try{localStorage.setItem(CAMP_HC_PROG_KEY,String(n));}catch(e){}}
+  const CAMP_TR_KEY='petanque_campagne_transpi_progress'; // index equipe atteint (mode transpi)
+  function campGetTranspiProg(){try{return parseInt(localStorage.getItem(CAMP_TR_KEY))||0;}catch(e){return 0;}}
+  function campSetTranspiProg(n){try{localStorage.setItem(CAMP_TR_KEY,String(n));}catch(e){}}
 
   // Ordre des équipes affrontées. Provisoire : ordre du CSV (à calibrer plus tard
   // par difficulté croissante quand on retravaillera les stats d'équipes).
@@ -1398,33 +1574,42 @@ margin-top:12px;
     const pseudo=getPseudo();
     supabaseFetchCampaign().then(rows=>{
       if(campResetSession)return; // l'utilisateur a réinitialisé entre-temps
-      let cloudNormal=0;
+      let cloudNormal=0, cloudTranspi=0;
       rows.forEach(r=>{
-        if(r.pseudo===pseudo&&r.mode==='normal'){
-          const t=parseInt(r.teams_beaten)||0;
-          if(t>cloudNormal)cloudNormal=t;
-        }
+        if(r.pseudo!==pseudo)return;
+        const t=parseInt(r.teams_beaten)||0;
+        if(r.mode==='normal'&&t>cloudNormal)cloudNormal=t;
+        if(r.mode==='transpi'&&t>cloudTranspi)cloudTranspi=t;
       });
-      if(cloudNormal>campGetProgress()){campSetProgress(cloudNormal);renderCampMenuInfo();}
+      let changed=false;
+      if(cloudNormal>campGetProgress()){campSetProgress(cloudNormal);changed=true;}
+      if(cloudTranspi>campGetTranspiProg()){campSetTranspiProg(cloudTranspi);changed=true;}
+      if(changed)renderCampMenuInfo();
     }).catch(()=>{});
   };
 
   function renderCampMenuInfo(){
     const total=campTeams.length;
     const prog=campGetProgress();
+    const trProg=campGetTranspiProg();
     const hcBest=campGetHardcoreBest();
     const hcProg=campGetHardcoreProgress();
     const info=document.getElementById('camp-progress-info');
     info.innerHTML='Équipes à battre : '+total+'<br>'
       +'Progression Normal : '+Math.min(prog,total)+' / '+total+'<br>'
+      +'Progression Transpi : '+Math.min(trProg,total)+' / '+total+'<br>'
       +'Record Hardcore : '+hcBest+' / '+total
       +((hcProg>0&&hcProg<total)?('<br>Série Hardcore en cours : '+hcProg+' / '+total):'');
     document.getElementById('btn-camp-normal').innerHTML=(prog>0&&prog<total)
       ? '▶ Reprendre (Normal)<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">équipe '+(prog+1)+' / '+total+'</span>'
-      : '▶ Mode Normal<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">on peut perdre sans reculer</span>';
+      : '▶ Mode Normal<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">IA classique · on peut perdre sans reculer</span>';
+    const trBtn=document.getElementById('btn-camp-transpi');
+    if(trBtn)trBtn.innerHTML=(trProg>0&&trProg<total)
+      ? '💦 Reprendre (Transpi)<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">équipe '+(trProg+1)+' / '+total+'</span>'
+      : '💦 Mode Transpi<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">IA tactique · on peut perdre sans reculer</span>';
     document.getElementById('btn-camp-hardcore').innerHTML=(hcProg>0&&hcProg<total)
       ? '💀 Reprendre (Hardcore)<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">équipe '+(hcProg+1)+' / '+total+'</span>'
-      : '💀 Mode Hardcore<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">une défaite = retour au début</span>';
+      : '💀 Mode Hardcore<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">IA tactique · une défaite = retour au début</span>';
     document.getElementById('btn-camp-reset').style.display=(prog>0)?'inline-block':'none';
   }
 
@@ -1438,16 +1623,36 @@ margin-top:12px;
     renderCampMenuInfo();
   };
 
-  window.startCampagne=function(hardcore){
+  // TEMP (debug) : saut direct au niveau des Frelons (avant-dernier) pour tester
+  // les événements de fin de campagne. À retirer en version finale.
+  function campDebugFrelons(){
+    if(!campTeams.length)return;
+    campHardcore=(campMode==='hardcore');
+    campEngine=(campMode==='normal')?'classic':'smart';
+    campOrder=campBuildOrder();
+    campIndex=Math.max(0,campOrder.length-2); // avant-dernier = Frelons
+    campResult=null; campResetSession=false; gameMode='campaign';
+    ['menu-niveau1','menu-solo','menu-campagne','screen-splash','screen-select','screen-rules']
+      .forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+    const rh=document.getElementById('rules-hint'); if(rh)rh.style.display='flex';
+    document.body.classList.add('in-game');
+    campJalonShown=false;campPrebossShown=false;campJalonDone={};
+    campShowVersus();
+    adjustCanvas();scheduleCanvasFit();
+  }
+
+  window.startCampagne=function(mode){
     if(!campTeams.length)return;
     campResetSession=false; // on (re)lance : la réconciliation cloud redevient active
-    campHardcore=!!hardcore;
+    campMode=(mode==='transpi'||mode==='hardcore')?mode:'normal';
+    campHardcore=(campMode==='hardcore');
+    campEngine=(campMode==='normal')?'classic':'smart'; // Transpi et Hardcore = moteur tactique
     campOrder=campBuildOrder();
-    // Reprise : en normal on repart de la progression sauvée ; en hardcore on
-    // reprend la série en cours (l'abandon ne remet PAS à zéro, seule la défaite).
-    campIndex=campHardcore
-      ? Math.min(campGetHardcoreProgress(),campOrder.length-1)
-      : Math.min(campGetProgress(),campOrder.length-1);
+    // Reprise selon le mode (hardcore : la défaite remet à zéro ; normal/transpi : non).
+    const resume = campMode==='hardcore' ? campGetHardcoreProgress()
+                 : campMode==='transpi' ? campGetTranspiProg()
+                 : campGetProgress();
+    campIndex=Math.min(resume,campOrder.length-1);
     campResult=null;
     document.getElementById('menu-niveau1').style.display='none';
     document.getElementById('menu-solo').style.display='none';
@@ -1507,13 +1712,49 @@ margin-top:12px;
   };
 
   // Lance un match contre l'équipe d'index campIndex
+  // Événements scénarisés des 2 derniers niveaux (déclenchés une fois par match,
+  // entre deux mènes, quand le joueur dépasse le seuil de points).
+  function campCheckScriptedEvent(){
+    if(gameMode!=='campaign'||state!=='done'||dialogueActive)return;
+    const last=campOrder.length-1;
+    const isBoss=(campIndex===last);
+    const isFrelons=(campIndex===last-1);
+    if(isFrelons&&!campEvtFrelonsDone&&scoreTotal[1]>5){
+      campEvtFrelonsDone=true; campReducedBoules=true;
+      showCampDialogue([
+        {a:"Mehdi",t:"Non ça ne va pas, il met plus de points que prévu"},
+        {a:"Jean-Vincent",t:"Il va falloir le piquer... ou lui piquer"},
+        {a:"",t:"* Vous remarquez qu'il ne vous reste plus que 4 boules dans les mains *"},
+        {a:"Mehdi",t:"Alors on fait moins le malin là ?"},
+        {a:"Jean-Vincent",t:"On va voir ce que tu vaux vraiment maintenant !"}
+      ],null);
+      return;
+    }
+    if(isBoss&&!campEvtBossDone&&scoreTotal[1]>8){
+      campEvtBossDone=true; campHideGauge=true;
+      showCampDialogue([
+        {a:"Corentin",t:"Argh ! On ne peut pas perdre aujourd'hui !"},
+        {a:"Guillaume",t:"On ne perdra pas Corentin !"},
+        {a:"Corentin",t:"Laisse-moi régler ça !"},
+        {a:"",t:"* Corentin vous surprend et vous mord fermement le bras *"},
+        {a:"Guillaume",t:"Je n'imaginais pas ça mais soit ..."},
+        {a:"Corentin",t:"Pardon, tu avais ... euh ... un moustique sur le bras. Oui voilà un moustique."},
+        {a:"",t:"* Vous êtes difficilement convaincu par l'explication mais reprenez la rencontre la plus importante de votre vie *"},
+        {a:"",t:"* Oups il semblerait que vous ayez dorénavant du mal à jauger votre puissance dans le bras. Sacrée mâchoire quand même. *"}
+      ],null);
+      return;
+    }
+  }
   function campStartMatch(){
     const eqIdx=campOrder[campIndex];
+    // Nouveau match = événements scénarisés remis à zéro
+    campReducedBoules=false; campHideGauge=false; campEvtFrelonsDone=false; campEvtBossDone=false;
     const eq=campTeams[eqIdx];
     teamNames[1]=getPseudo()||'TOI';
     teamNames[2]=eq?eq.nom:'Équipe';
     // L'IA prend les stats de l'équipe courante
     aiRaw=eq?{analyse:eq.analyse,tir:eq.tir,pointage:eq.pointage}:{analyse:0.5,tir:0.5,pointage:0.5};
+    aiEngine=campEngine; // moteur selon le mode (Normal=classique, Transpi/Hardcore=tactique)
     document.getElementById('p1name').textContent=teamNames[1];
     document.getElementById('p2name').textContent=teamNames[2];
     scoreTotal={1:0,2:0};
@@ -1534,7 +1775,7 @@ margin-top:12px;
 
   function updateCampagneMsg(){
     const total=campOrder.length;
-    const tag=campHardcore?'💀 HARDCORE':'CAMPAGNE';
+    const tag=campMode==='hardcore'?'💀 HARDCORE':(campMode==='transpi'?'💦 TRANSPI':'CAMPAGNE');
     setMsg(tag+'  ·  Adversaire '+(campIndex+1)+' / '+total+'  ·  '+teamNames[2]);
   }
 
@@ -1557,13 +1798,17 @@ margin-top:12px;
       const endLines=beatenTeam?parseDialogueLines(beatenTeam.Line_End):[];
       // Avance d'un cran
       campIndex++;
-      if(!campHardcore){
+      if(campMode==='hardcore'){
+        // Sauvegarde la série hardcore en cours (pour reprise après abandon)
+        campSetHardcoreProgress(campIndex);
+      }else if(campMode==='transpi'){
+        // Progression Transpi (équipes battues) + classement dédié
+        if(campIndex>campGetTranspiProg())campSetTranspiProg(campIndex);
+        campCloudSend('transpi',campIndex);
+      }else{
         // Sauvegarde la progression normale (équipes battues)
         if(campIndex>campGetProgress())campSetProgress(campIndex);
         campCloudSend('normal',campIndex);
-      }else{
-        // Sauvegarde la série hardcore en cours (pour reprise après abandon)
-        campSetHardcoreProgress(campIndex);
       }
       if(campIndex>=campOrder.length){
         // Toutes les équipes battues → victoire finale
@@ -1623,13 +1868,15 @@ margin-top:12px;
   // Plus le niveau monte : la cible s'éloigne (y croissant) et se décale
   // latéralement de façon plus marquée.
   function chTargetPos(level){
-    // Distance : de ~6 m (niveau 1) jusqu'à ~13 m, saturée au niveau 20.
-    // (Au-delà du niveau 20, la difficulté passe par les obstacles.)
-    const yMin=6*SCALE, yMax=13*SCALE;
-    const t=Math.min(1,(level-1)/19); // saturation au niveau 20
-    const y=yMin+(yMax-yMin)*t;
-    // Décalage latéral : amplitude croissante, direction aléatoire
-    const maxOff=Math.min(1.6*SCALE, (0.3+1.3*t)*SCALE);
+    // Distance TIREE AU HASARD dans une plage qui s'elargit avec le niveau et
+    // reste variee (court <-> lointain) aux hauts niveaux, au lieu de saturer :
+    // il faut reajuster l'angle selon la distance a chaque manche.
+    const t=Math.min(1,(level-1)/12);        // plage pleine vers le niveau 13
+    const near=5.5*SCALE;                     // toujours possible : proche
+    const far =(8+5*t)*SCALE;                 // de 8 m jusqu'a 13 m
+    const y=near+Math.random()*(far-near);
+    // Decalage lateral : amplitude croissante, direction aleatoire
+    const maxOff=Math.min(1.6*SCALE,(0.3+1.3*t)*SCALE);
     const off=(Math.random()*2-1)*maxOff;
     let x=WORLD_W/2+off;
     x=Math.max(0.7*SCALE,Math.min(WORLD_W-0.7*SCALE,x));
@@ -1640,6 +1887,8 @@ margin-top:12px;
   //   < 21 : aucun
   //   21–29 : 1 obstacle (qui se rapproche de la cible avec le niveau)
   //   30–39 : 2 · 40–49 : 3 · puis +1 tous les 10 niveaux
+  // Balles par manche : 2 avant le niveau 11, puis 1.
+  function chLives(level){return level<=10?2:1;}
   function chNumObstacles(level){
     if(level<21)return 0;
     if(level<30)return 1;
@@ -1659,19 +1908,42 @@ margin-top:12px;
     const n=chNumObstacles(level);
     const arr=[];
     if(n<=0)return arr;
+    const ax=target.x-ORIGIN.x, ay=target.y-ORIGIN.y;
+    const len=Math.hypot(ax,ay)||1;
+    const ux=ax/len, uy=ay/len;      // axe tireur -> cible
+    const px=-uy, py=ux;             // perpendiculaire a l'axe
     const lead=chLeadFraction(level);
-    const gap=0.12; // écart entre obstacles le long de l'axe
-    for(let i=0;i<n;i++){
-      let frac=lead-i*gap;
-      frac=Math.max(0.30,Math.min(0.82,frac)); // jamais sur le joueur ni la cible
-      const ox=ORIGIN.x+(target.x-ORIGIN.x)*frac;
-      const oy=ORIGIN.y+(target.y-ORIGIN.y)*frac;
-      arr.push({
-        x:Math.max(0.6*SCALE,Math.min(WORLD_W-0.6*SCALE,ox)),
-        y:oy,z:0,vx:0,vy:0,vz:0,
-        mass:1.8,          // lourd → peu mobile, mais < 2 pour garder un vrai rebond
-        phase:'rolling',active:true,isObstacle:true
-      });
+    // MURAILLE : les boules bleues forment un mur perpendiculaire a l'axe, juste
+    // devant la cible (donc toutes utiles), a plomber par-dessus. Trop nombreuses
+    // pour une rangee -> on empile des rangees vers le tireur, en quinconce.
+    // Distance du mur à la cible VARIABLE : le plus souvent proche (dur), parfois
+    // plus en avant (tirage biaisé vers 0 -> "éloigné" reste l'exception).
+    const nearFrac=Math.min(0.88,0.80+0.08*Math.min(1,(level-21)/40)); // borne proche
+    const farFrac=0.55;                                                // borne éloignée
+    const fracWall=nearFrac-(nearFrac-farFrac)*Math.pow(Math.random(),3); // biais fort vers "proche"
+    const spacing=1.7*BR_BASE;       // espacement lateral (mur quasi continu)
+    const rowGap =1.6*BR_BASE;       // profondeur entre rangees
+    const perRow =Math.max(1,Math.min(n,5));
+    const jitter =(Math.random()*2-1)*0.3*SCALE; // leger decalage lateral du mur
+    const clampX=v=>Math.max(0.6*SCALE,Math.min(WORLD_W-0.6*SCALE,v));
+    const clampY=v=>Math.max(0.6*SCALE,Math.min(WORLD_H-0.6*SCALE,v));
+    let placed=0, row=0;
+    while(placed<n){
+      const inRow=Math.min(perRow,n-placed);
+      const rowFrac=Math.max(0.50,fracWall-row*(rowGap/len));
+      const rcx=ORIGIN.x+ax*rowFrac, rcy=ORIGIN.y+ay*rowFrac;
+      const rjit=jitter+(row%2)*spacing*0.5; // rangees en quinconce
+      for(let i=0;i<inRow;i++){
+        const k=(i===0)?0:(Math.ceil(i/2)*(i%2===1?-1:1)); // 0,-1,+1,-2,+2,...
+        const lat=k*spacing+rjit;
+        arr.push({
+          x:clampX(rcx+px*lat), y:clampY(rcy+py*lat),
+          z:0,vx:0,vy:0,vz:0,
+          mass:1.8, phase:'rolling', active:true, isObstacle:true
+        });
+        placed++;
+      }
+      row++;
     }
     return arr;
   }
@@ -1701,10 +1973,10 @@ margin-top:12px;
     if(raf)cancelAnimationFrame(raf);
     state='aim';mouse={x:SW/2,y:SH*0.55};charge=0;chargeDir=1;
     heightLevel=0.15;
-    balls=[];boules={1:2,2:0};cur=1; // 2 boules pour le tireur
+    balls=[];boules={1:chLives(chLevel),2:0};cur=1; // vies selon le niveau
     chHit=false;chResult=null;
     const pos=chTargetPos(chLevel);
-    chTarget={x:pos.x,y:pos.y,z:0,vx:0,vy:0,vz:0,mass:1.2,phase:'rolling',active:true,isTarget:true};
+    chTarget={x:pos.x,y:pos.y,x0:pos.x,y0:pos.y,z:0,vx:0,vy:0,vz:0,mass:1.2,phase:'rolling',active:true,isTarget:true};
     chObstacles=chBuildObstacles(chLevel,chTarget);
     // Le "jack" interne pointe sur la cible (réutilise l'affichage des distances)
     jack={x:pos.x,y:pos.y,z:0,vx:0,vy:0,vz:0,mass:2.8,phase:'rolling',active:false};
@@ -1713,14 +1985,23 @@ margin-top:12px;
 
   function updateChallengeMsg(){
     const best=chGetBest();
-    setMsg('🎯 Niveau '+chLevel+'  ·  Série : '+chStreak+'  ·  Record : '+best+'   —   Touche la boule rouge !');
+    const restantes=(boules&&boules[1]!=null)?boules[1]:chLives(chLevel);
+    const balleTxt=restantes<=1?'⚠ 1 balle':(restantes+' balles');
+    setMsg('🎯 Niveau '+chLevel+'  ·  Série : '+chStreak+'  ·  Record : '+best+'  ·  '+balleTxt+'   —   Touche la boule rouge !');
   }
 
   // Vérifie le contact boules-cible (appelé pendant la simulation au sol)
   function chCheckHit(){
     if(!chTarget)return;
+    // La cible a bougé (percutée directement ou par carambolage) OU une boule est au
+    // contact : dans les deux cas c'est TOUCHÉ. Détecter le déplacement évite le faux
+    // "manqué" quand le choc écarte les boules avant le test de proximité en fin de frame.
+    if(chTarget.x0!=null&&(Math.hypot(chTarget.x-chTarget.x0,chTarget.y-chTarget.y0)>2
+        ||Math.abs(chTarget.vx)+Math.abs(chTarget.vy)>0.05)){chHit=true;return;}
     for(const b of balls){
-      if(!b.active)continue;
+      // Seule une boule AU SOL peut toucher la cible ; une boule en vol qui SURVOLE
+      // la cible ne la touche pas (collisions uniquement au sol) -> pas de faux positif.
+      if(!b.active||b.phase!=='rolling')continue;
       const dx=b.x-chTarget.x, dy=b.y-chTarget.y;
       const d=Math.sqrt(dx*dx+dy*dy);
       if(d <= BALL_R_COL+effectiveR(chTarget)+0.5){chHit=true;return;}
@@ -1731,7 +2012,8 @@ margin-top:12px;
   function challengeAfterStop(){
     if(chHit){challengeResolve();return;}          // touché → gagné
     if(boules[1]>0){                                // raté mais il reste une boule
-      state='aim';updateChallengeMsg();return;
+      state='aim';mouse={x:SW/2,y:SH*0.55};charge=0;chargeDir=1; // visée recentrée
+      updateChallengeMsg();return;
     }
     challengeResolve();                             // plus de boule → perdu
   }
@@ -1802,7 +2084,6 @@ Thé Rolling Stones,0.8,0.8,0.8
 Touz & Roll,0.8,0.8,0.8`;
 
   let equipes=[];
-  let aiTabMode='equipes'; // 'equipes'|'manual'
 
   function parseCSV(csv){
     const lines=csv.trim().split('\n');
@@ -2028,13 +2309,6 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     document.getElementById('team2-row').style.display='flex';
   }
 
-  function selectAiTab(tab){
-    aiTabMode=tab;
-    document.getElementById('tab-auto').classList.toggle('active',tab==='equipes');
-    document.getElementById('tab-manual').classList.toggle('active',tab==='manual');
-    document.getElementById('pane-manual').style.display=tab==='manual'?'flex':'none';
-  }
-  window.selectAiTab=selectAiTab;
 
   // ── Navigation menu à 2 niveaux ──────────────────────────
   window.showSubMenuSolo=function(){
@@ -2305,7 +2579,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   window.openCampClassement=function(mode){
     const body=document.getElementById('classement-body');
     document.getElementById('classement-title').textContent=
-      (mode==='hardcore'?'💀 CAMPAGNE HARDCORE':'🏆 CAMPAGNE NORMAL');
+      (mode==='hardcore'?'💀 CAMPAGNE HARDCORE':mode==='transpi'?'💦 CAMPAGNE TRANSPI':'🏆 CAMPAGNE NORMAL');
     document.getElementById('screen-classement').style.display='flex';
     body.innerHTML='<div style="padding:20px;color:#aaa;">Chargement…</div>';
     supabaseFetchCampaign().then(rows=>{
@@ -2459,18 +2733,21 @@ Corentin: On se retrouvera au prochain tournoi !"`;
 
   // Difficulté manuelle : Facile=Moyen actuel (0.5), Moyen=Bon actuel (0.75), Expert (1.0)
   const DIFF_PRESETS={
-    facile: {analyse:0.5, tir:0.5,  pointage:0.5,  label:'Erreurs fréquentes'},
-    moyen:  {analyse:0.75,tir:0.75, pointage:0.75, label:'Niveau intermédiaire'},
-    expert: {analyse:1.0, tir:1.0,  pointage:1.0,  label:'Redoutable'},
+    facile:    {engine:'classic', analyse:0.5, tir:0.5,  pointage:0.5,  label:'Erreurs fréquentes'},
+    normal:    {engine:'classic', analyse:0.75,tir:0.75, pointage:0.75, label:'Niveau intermédiaire'},
+    difficile: {engine:'classic', analyse:1.0, tir:1.0,  pointage:1.0,  label:'Redoutable'},
+    transpi:   {engine:'smart',   analyse:1.0, tir:1.0,  pointage:1.0,  label:'Moteur tactique — bon courage'},
   };
-  let selectedDiff='moyen';
+  let selectedDiff='normal';
   window.selectDiff=function(d){
     selectedDiff=d;
-    ['facile','moyen','expert'].forEach(k=>document.getElementById('diff-'+k).classList.toggle('active',k===d));
+    ['facile','normal','difficile','transpi'].forEach(k=>{const el=document.getElementById('diff-'+k);if(el)el.classList.toggle('active',k===d);});
     document.getElementById('diff-label').textContent=DIFF_PRESETS[d].label;
   };
   // Init bouton par défaut
-  selectDiff('moyen');
+  selectDiff('normal');
+
+  // (Le moteur IA est desormais determine par la difficulte choisie ci-dessus.)
 
   // ── Plein écran + verrouillage paysage (au mieux selon le navigateur) ──
   function tryFullscreenLandscape(showFeedback){
@@ -2637,16 +2914,10 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     if(gameMode==='pvc'){
       const idx2=parseInt(document.getElementById('select-team2').value)||0;
       teamNames[2]=equipes[idx2]?equipes[idx2].nom:'La Machine';
-      if(aiTabMode==='equipes'){
-        // Paramètres automatiques : stats CSV de l'équipe sélectionnée
-        const eq=equipes[idx2];
-        if(eq)aiRaw={analyse:eq.analyse,tir:eq.tir,pointage:eq.pointage};
-        else   aiRaw={analyse:0.5,tir:0.5,pointage:0.5};
-      }else{
-        // Paramètres manuels : difficulté choisie
-        const p=DIFF_PRESETS[selectedDiff];
-        aiRaw={analyse:p.analyse,tir:p.tir,pointage:p.pointage};
-      }
+      // La difficulté choisie fixe les stats ET le moteur (Transpi = tactique).
+      const p=DIFF_PRESETS[selectedDiff];
+      aiRaw={analyse:p.analyse,tir:p.tir,pointage:p.pointage};
+      aiEngine=p.engine||'classic';
     }else{
       // PvP : nom J2 depuis le select
       const idx2=parseInt(document.getElementById('select-team2').value)||0;
@@ -2851,7 +3122,6 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   campTeams=parseCampCSV(CAMPAGNE_CSV);
   populateTeamSelects();
   gameMode='pvp'; // mode par défaut (PvP local), sans activer les boutons du niveau 2
-  selectAiTab('equipes');
   // Pré-affichage du pseudo connu + validation par Entrée
   refreshPseudoDisplay();
   (function(){
@@ -2862,10 +3132,15 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   // ═══════════════════════════════════════════════════════
   //  EVENTS JOUEUR
   // ═══════════════════════════════════════════════════════
+  // Visée souris RELATIVE (tous modes) : la flèche repart du centre à chaque boule
+  // (voir onTurnStart / challengeNewManche) puis le déplacement HORIZONTAL de la
+  // souris la fait pivoter. mouse.y reste figé sur la référence "droit devant",
+  // donc bouger la souris verticalement ne change plus la visée.
+  const AIM_SENS=1.0; // sensibilité (déplacement flèche par déplacement souris) — ajustable
   canvas.addEventListener('mousemove',e=>{
     const r=canvas.getBoundingClientRect();
-    mouse.x=(e.clientX-r.left)*(SW/r.width);
-    mouse.y=(e.clientY-r.top)*(SH/r.height);
+    const dxCanvas=(e.movementX||0)*(SW/r.width);
+    mouse.x=Math.max(0,Math.min(SW,mouse.x+dxCanvas*AIM_SENS));
     if(state==='aim'||state==='charge')updateMsg();
   });
 
@@ -2908,13 +3183,24 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     }
     // Touche A : toggle overlay règles (en jeu seulement)
     if(e.key==='a'||e.key==='A'){toggleRules();return;}
+    // B : TEMP debug -> saut direct au niveau des Frelons (ignoré pendant une saisie)
+    if(e.key==='b'||e.key==='B'){
+      const ae=document.activeElement;
+      if(!ae||(ae.tagName!=='INPUT'&&ae.tagName!=='TEXTAREA'))campDebugFrelons();
+      return;
+    }
     // Touche $ : TRICHE de test → 12 points au joueur 1 (hors réseau).
     // Touche discrète, conservée temporairement pour tester l'enchaînement des
     // matchs (marque le 13e à la main). À retirer en version finale.
     if(e.key==='$'){
-      if(gameMode!=='pvr'&&document.body.classList.contains('in-game')){
-        scoreTotal[1]=12;updateScore();
-        setMsg('🛠️ Triche : 12 points. Marque le dernier point pour finir.');
+      if(document.body.classList.contains('in-game')){
+        if(gameMode==='challenge'){
+          // Debug : gagne le niveau courant automatiquement
+          if(state==='aim'||state==='charge'){chHit=true;challengeResolve();}
+        }else if(gameMode!=='pvr'){
+          scoreTotal[1]=12;updateScore();
+          setMsg('🛠️ Triche : 12 points. Marque le dernier point pour finir.');
+        }
       }
       return;
     }
@@ -3378,10 +3664,16 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     }
     if(state==='charge'){
       const gx=SW/2-70,gy=SH-22,gw=140,gh=12;
-      ctx.fillStyle='rgba(0,0,0,0.55)';rrect(gx-3,gy-3,gw+6,gh+6,4);ctx.fill();
-      ctx.fillStyle='#1a1a1a';rrect(gx,gy,gw,gh,3);ctx.fill();
-      ctx.fillStyle='hsl('+Math.round(120-charge*120)+',80%,50%)';rrect(gx,gy,gw*charge,gh,3);ctx.fill();
-      ctx.font='bold 10px sans-serif';ctx.fillStyle='white';ctx.textAlign='center';ctx.fillText('PUISSANCE',SW/2,gy+10);
+      if(campHideGauge){
+        // USLPLP : la jauge est masquée, on charge à l'aveugle (« mal de bras »)
+        ctx.fillStyle='rgba(0,0,0,0.55)';rrect(gx-3,gy-3,gw+6,gh+6,4);ctx.fill();
+        ctx.font='bold 10px sans-serif';ctx.fillStyle='#e6a0a0';ctx.textAlign='center';ctx.fillText('🤕 MAL DE BRAS',SW/2,gy+10);
+      }else{
+        ctx.fillStyle='rgba(0,0,0,0.55)';rrect(gx-3,gy-3,gw+6,gh+6,4);ctx.fill();
+        ctx.fillStyle='#1a1a1a';rrect(gx,gy,gw,gh,3);ctx.fill();
+        ctx.fillStyle='hsl('+Math.round(120-charge*120)+',80%,50%)';rrect(gx,gy,gw*charge,gh,3);ctx.fill();
+        ctx.font='bold 10px sans-serif';ctx.fillStyle='white';ctx.textAlign='center';ctx.fillText('PUISSANCE',SW/2,gy+10);
+      }
     }
     if(state==='camp-win'||state==='camp-lose'||state==='camp-done'){
       const bandH=92;
@@ -3416,7 +3708,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
       let line1,line2;
       if(state==='ch-win'){
         line1='✅ TOUCHÉ !  Série : '+chStreak;
-        line2='Niveau '+chLevel+'  ·  Espace pour la manche suivante';
+        line2='Niveau '+chLevel+'  ·  '+(chLevel<=10?'2 balles':'⚠ 1 balle')+'  ·  Espace pour continuer';
         ctx.fillStyle='#7dca7d';
       }else{
         line1='❌ MANQUÉ !';
