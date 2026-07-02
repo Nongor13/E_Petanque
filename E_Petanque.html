@@ -27,6 +27,9 @@
   }
   #hud,.side-panel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;}
   #side-right{min-width:160px;width:160px;}
+  #emote-bar{display:flex;gap:4px;flex-wrap:wrap;}
+  #emote-bar button{font-size:15px;padding:4px 7px;min-width:0;line-height:1;}
+  #btn-rematch{background:#2f6b2f;}
   .pb{background:#2a2a2a;border:1px solid #444;border-radius:6px;padding:3px 10px;color:#aaa;}
   .pb span{font-weight:600;color:#eee;}
 
@@ -581,6 +584,14 @@ margin-top:12px;
   <div id="msg">—</div>
   <button onclick="showSelect()">Menu</button>
   <button onclick="newManche()">Nouvelle manche</button>
+  <button id="btn-rematch" onclick="netRematch()" style="display:none">🔁 Revanche</button>
+  <div id="emote-bar" style="display:none">
+    <button onclick="sendEmote(0)" title="Bien joué !">👏</button>
+    <button onclick="sendEmote(1)" title="Oh le carreau !">😮</button>
+    <button onclick="sendEmote(2)" title="Petit chanceux…">🍀</button>
+    <button onclick="sendEmote(3)" title="Regarde et apprends">😎</button>
+    <button onclick="sendEmote(4)" title="GG !">🤝</button>
+  </div>
   <button onclick="requestFullscreenLandscape()">⛶ Plein écran</button>
   <button onclick="openStandalone()">↗ Nouvel onglet</button>
   <button id="btn-son" onclick="toggleSon()">🔊 Son</button>
@@ -663,8 +674,81 @@ margin-top:12px;
     1:{fill:'#3a6fc4',stroke:'#1a3f94',light:'rgba(58,111,196,0.4)'},
     2:{fill:'#c43a3a',stroke:'#941a1a',light:'rgba(196,58,58,0.4)'}
   };
+  // Palette « acier teinté » : boules métalliques, reflets bleus/rouges pour
+  // l'identification rapide (hi=reflet, mid=corps, deep=ombre colorée, rim=bord)
+  const STEEL={
+    1:{hi:'#dfe9f8',mid:'#7d9dd4',deep:'#2f5da8',rim:'#141f36'},
+    2:{hi:'#f8e3df',mid:'#d18e84',deep:'#a83a2f',rim:'#361714'}
+  };
 
   let state,mouse,charge,chargeDir,balls,jack,raf;
+
+  // ═══ Effets visuels & terrain vivant ═══
+  let traces=[];        // marques laissées dans le gravier par les boules qui roulent
+  let dust=[];          // particules de poussière (atterrissages, gros chocs)
+  let emoteFx=[];       // bulles d'emotes réseau {p:joueur,t:texte,ts:ms}
+  let terrainZones=[];  // zones de sable {x,y,r} : friction accrue, visibles
+  const SAND_FRIC=0.965; // multiplicateur de friction SUPPLÉMENTAIRE dans le sable
+  // ═══ Météo de match (persistante tout le match, comme le terrain) ═══
+  // Vent : 3 intensités. 0=faible (aucune incidence), 1=fort (dérive minime sur
+  // les envois très en l'air), 2=très fort (déviation de quelques pixels en vol).
+  const WIND_ACCEL=[0,0.002,0.005];          // accélération px/frame² en vol
+  const WIND_NAMES=['FAIBLE','FORT','TRÈS FORT'];
+  const WIND_HUD_COLORS=['#8fd48f','#ffb347','#ff5a5a'];
+  let matchWind={ax:0,ay:0,level:0,ang:0};
+  const RAIN_FRIC=0.988;                      // sol mouillé : friction accrue au roulé
+  let matchRain=false;
+  // ═══ Animation « mesure » : quand deux boules adverses sont quasi à égalité
+  // du cochonnet en fin de mène, l'arbitre sort le mètre avant d'annoncer. ═══
+  const MEASURE_EPS=3;      // écart en px monde (3 px = 7,5 cm) déclenchant la mesure
+  const MEASURE_DUR=2600;   // durée totale de l'animation (ms)
+  let measureFx=null;       // {jack,a,b,winner,t0,onDone,finished}
+
+  function inSand(x,y){
+    for(const z of terrainZones){const dx=x-z.x,dy=y-z.y;if(dx*dx+dy*dy<z.r*z.r)return true;}
+    return false;
+  }
+  // Génère 2 à 5 flaques de sable espacées (jamais en mode challenge)
+  function genTerrainZones(){
+    terrainZones=[];
+    if(gameMode==='challenge')return;
+    const rr=Math.random();
+    const n=rr<0.30?2:(rr<0.65?3:(rr<0.88?4:5));
+    for(let i=0;i<n;i++){
+      // Jusqu'à 12 essais pour éviter que deux flaques se chevauchent
+      for(let tries=0;tries<12;tries++){
+        const z={
+          x:(0.7*SCALE)+Math.random()*(WORLD_W-1.4*SCALE),
+          y:(4.0*SCALE)+Math.random()*(9*SCALE),
+          r:(0.40+Math.random()*0.35)*SCALE
+        };
+        if(terrainZones.every(o=>Math.hypot(o.x-z.x,o.y-z.y)>(o.r+z.r)*0.95)){
+          terrainZones.push(z);break;
+        }
+      }
+    }
+  }
+  // Environnement DE MATCH : terrain (flaques) + vent + pluie. Généré UNE fois
+  // au début du match et persistant sur toutes les mènes, comme un vrai terrain.
+  function genMatchEnv(){
+    genTerrainZones();
+    if(gameMode==='challenge'){matchWind={ax:0,ay:0,level:0,ang:0};matchRain=false;return;}
+    // Vent : 50% faible / 30% fort / 20% très fort, direction surtout latérale
+    const wr=Math.random();
+    const level=wr<0.50?0:(wr<0.80?1:2);
+    const ang=(Math.random()<0.5?0:Math.PI)+(Math.random()-0.5)*0.9;
+    const A=WIND_ACCEL[level];
+    matchWind={ax:Math.cos(ang)*A,ay:Math.sin(ang)*A*0.6,level,ang};
+    // Pluie : 25% des matchs — le sol mouillé freine davantage les boules
+    matchRain=Math.random()<0.25;
+  }
+  function spawnDust(x,y,n,pw){
+    for(let i=0;i<n;i++){
+      const a=Math.random()*Math.PI*2,sp=(0.3+Math.random()*0.9)*pw;
+      dust.push({x,y,z:1+Math.random()*2,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*0.5,vz:0.4+Math.random()*0.8*pw,life:1});
+    }
+    if(dust.length>140)dust.splice(0,dust.length-140);
+  }
   let cur,boules,scoreTotal;
   // ── Mode Challenge tireur d'élite ──
   let chStreak=0;        // série de manches réussies en cours
@@ -782,6 +866,8 @@ margin-top:12px;
     b.vx+=imp*a.mass*nx;b.vy+=imp*a.mass*ny;
     // Son d'impact : force ~ vitesse d'approche (dot). Cochonnet = son mat.
     playImpactSound(dot,isJackCollision?'jack':'ball');
+    // Petit nuage de poussière sur les chocs marqués (carreaux !)
+    if(dot>1.2)spawnDust((a.x+b.x)/2,(a.y+b.y)/2,Math.min(8,Math.round(dot*1.6)),0.6);
   }
   const SLEEP_SPEED=0.08; // sous cette vitesse, une boule est considérée arrêtée et figée
   function updateGround(bodies){
@@ -801,11 +887,28 @@ margin-top:12px;
     // Friction appliquee une seule fois par frame (deceleration inchangee).
     for(const b of bodies){
       if(b.vx===0&&b.vy===0)continue;
-      const f=b.rollFric||ROLL_FRIC;b.vx*=f;b.vy*=f;
+      // Zone de sable : la boule freine nettement plus vite. Sol mouillé : friction accrue.
+      const f=(b.rollFric||ROLL_FRIC)*(inSand(b.x,b.y)?SAND_FRIC:1)*(matchRain?RAIN_FRIC:1);
+      b.vx*=f;b.vy*=f;
+      // Trace au sol : une marque tous les ~2,5 px parcourus (sillon continu).
+      // BUGFIX : il faut initialiser _tx/_ty au premier passage, sinon la
+      // distance mesurée depuis « soi-même » vaut toujours 0 et rien n'est posé.
+      if(b._tx===undefined){b._tx=b.x;b._ty=b.y;}
+      const dtx=b.x-b._tx,dty=b.y-b._ty;
+      if(dtx*dtx+dty*dty>6){
+        traces.push({x:b.x,y:b.y,a:0.075,
+          r:b.isJack?JR_BASE*0.55:BR_BASE*0.72,
+          ang:Math.atan2(dty*0.45,dtx)}); // orientation écran (perspective aplatie)
+        if(traces.length>600)traces.shift();
+        b._tx=b.x;b._ty=b.y;
+      }
     }
   }
   function updateFlying(b){
     b.x+=b.vx;b.y+=b.vy;b.z+=b.vz;b.vz-=G;
+    // Vent : n'agit QUE pendant le vol → plus l'envoi est haut, plus la dérive
+    // s'accumule (faible=0, fort=dérive minime, très fort=quelques pixels)
+    if(b.z>0){b.vx+=matchWind.ax;b.vy+=matchWind.ay;}
     if(b.z<=0){
       b.z=0;
       const imp=Math.abs(b.vz);
@@ -813,6 +916,8 @@ margin-top:12px;
       // Son d'atterrissage : « toc » mat dont la force suit la vitesse de chute.
       // (le cochonnet ne déclenche pas ce son ici car il ne vole pas comme une boule)
       playImpactSound(imp,'ground');
+      // Nuage de poussière proportionnel à la violence de l'impact
+      spawnDust(b.x,b.y,Math.min(12,Math.round(2+imp*1.5)),Math.min(1.5,0.4+imp*0.15));
       // Freinage horizontal à l'impact :
       //   h=0   (roulette) → 0% de frein, conserve tout l'élan
       //   h=0.4 (tendu)    → ~20% de frein, atterrit avec élan, roule loin
@@ -844,6 +949,7 @@ margin-top:12px;
     const flyMinZ=BR_BASE*1.2; // hauteur minimale pour survoler sans pénalité
     for(let t=0;t<2000;t++){
       x+=bVx;y+=bVy;z+=bVz;bVz-=G;
+      if(z>0){bVx+=matchWind.ax;bVy+=matchWind.ay;} // le vent souffle aussi dans la simu IA
       if(!inTerrain(x,y))return null;
       // Détection contact cible (tir) — en vol bas ou au sol
       if(hitTarget&&z<flyMinZ){
@@ -869,7 +975,8 @@ margin-top:12px;
         else{
           bVz=0;
           for(let t2=0;t2<2000;t2++){
-            x+=bVx;y+=bVy;bVx*=rollFricLocal;bVy*=rollFricLocal;
+            const sf=(inSand(x,y)?SAND_FRIC:1)*(matchRain?RAIN_FRIC:1); // sable + pluie dans la simu IA
+            x+=bVx;y+=bVy;bVx*=rollFricLocal*sf;bVy*=rollFricLocal*sf;
             if(!inTerrain(x,y))return null;
             // Détection contact cible au sol
             if(hitTarget){
@@ -1014,7 +1121,12 @@ margin-top:12px;
     };
   }
   function applyNoiseSmart(shot,isTir){
-    const{sAngle,sPower,sHeight}=getNoiseParamsSmart(isTir);
+    let{sAngle,sPower,sHeight}=getNoiseParamsSmart(isTir);
+    // CARREAU : le dosage de puissance doit être parfait pour retomber sur la
+    // boule → bruit de puissance nettement amplifié (+ hauteur). C'est ce qui
+    // en fait un coup risqué ; l'espérance de gain échantillonne CE bruit,
+    // donc l'IA en tient compte honnêtement avant de le tenter.
+    if(shot.carreau){sPower*=1.7;sAngle*=1.2;sHeight=Math.max(sHeight,sigmaSmart(aiRaw.tir)*0.8);}
     const noisyAngle =shot.angle+clampedGauss(sAngle)*0.22;
     const noisyCharge=Math.max(0,Math.min(1,shot.charge+clampedGauss(sPower)*0.18));
     const noisyHNorm =Math.max(0,Math.min(1,shot.hNorm+clampedGauss(sHeight)*0.14));
@@ -1060,13 +1172,23 @@ margin-top:12px;
   // Valeur ESPÉRÉE d'un tir : réussite = cible retirée ; raté = la boule finit sa course
   // (souvent loin) et la cible reste. Un tir peu fiable devient donc peu payant.
   function expectedShootValue(shot,target,obstacles,rolling){
-    const hitTarget={x:target.x,y:target.y,r:BR_BASE*2.2};
+    // Tir rasant : la boule arrive lancée, une trajectoire passant à ~2 rayons
+    // touche presque toujours. Carreau (plombé) : il faut retomber quasiment
+    // SUR la cible → fenêtre de contact bien plus étroite.
+    const hitR=shot.hNorm>0.4?BR_BASE*1.3:BR_BASE*2.2;
+    const hitTarget={x:target.x,y:target.y,r:hitR};
     const removed=rolling.filter(b=>b!==target);
     let sum=0;
     for(let k=0;k<RISK_SAMPLES;k++){
       const nz=applyNoiseSmart(shot,true);
       const r=simulateLaunch(nz.vx,nz.vy,nz.vz,nz.hNorm,obstacles,hitTarget);
-      if(r&&r.hit){ sum+=boardValue(removed); }
+      if(r&&r.hit){
+        // CARREAU (tir plombé, hNorm élevé) : la boule tireuse s'écrase sur place
+        // et remplace la cible → elle compte au plateau. Tir rasant : la boule
+        // tireuse poursuit sa course (souvent loin) → on ne la compte pas.
+        if(shot.hNorm>0.4)sum+=boardValue(removed.concat([{active:true,phase:'rolling',player:2,x:r.x,y:r.y}]));
+        else sum+=boardValue(removed);
+      }
       else if(r){ sum+=boardValue(rolling.concat([{active:true,phase:'rolling',player:2,x:r.x,y:r.y}])); }
       else { sum+=boardValue(rolling); }
     }
@@ -1114,11 +1236,15 @@ margin-top:12px;
     const shootable=oppBalls.filter(b=>dist2(b,jack)<=SHOOT_MAX_DIST);
     if(!shootable.length)return null;
     const rolling=balls.filter(b=>b.active&&b.phase==='rolling');
+    // Porte probabiliste du CARREAU : coup de prestige, tenté seulement de temps
+    // en temps, d'autant plus souvent que la main de tir est sûre. Non systématique.
+    const tryCarreau=Math.random()<(0.10+aiRaw.tir*0.30);
     let best=null;
     for(const target of shootable){
       const baseAngle=Math.atan2(target.y-ORIGIN.y,target.x-ORIGIN.x);
       const hitTarget={x:target.x,y:target.y,r:BR_BASE*2.2};
       const obstacles=oppBalls.filter(b=>Math.abs(b.x-target.x)>1||Math.abs(b.y-target.y)>1);
+      // ── Variante 1 : tir rasant classique (hNorm 0.05) ──
       let shotBest=null;
       for(const dA of [0,-0.04,-0.08,0.04,0.08]){
         const angle=baseAngle+dA;
@@ -1131,9 +1257,48 @@ margin-top:12px;
           if(!shotBest||sc<shotBest.sc){shotBest={sc,shot:{angle,charge,hNorm:hN}};}
         }
       }
-      if(!shotBest)continue; // pas de tir propre sur cette cible
-      const ev=expectedShootValue(shotBest.shot,target,obstacles,rolling)-shotBest.sc*0.5;
-      if(!best||ev>best.value){best={value:ev,shot:shotBest.shot,target};}
+      // ── Variante 2 : CARREAU — boule plombée qui retombe SUR la cible ──
+      // (hNorm élevé : forte absorption à l'impact → la tireuse reste sur place).
+      // Fenêtre de réussite étroite : le bruit d'exécution en fait un coup risqué,
+      // arbitré par la valeur espérée comme n'importe quel autre coup.
+      let carreauCands=[];
+      if(tryCarreau){
+        // Fenêtre de contact étroite : il faut retomber quasiment sur la boule
+        const hitTargetC={x:target.x,y:target.y,r:BR_BASE*1.3};
+        for(const hN of [0.55,0.65,0.75]){
+          // Pour chaque hauteur, on cherche l'angle offrant la plus large plage
+          // de charges qui touchent, puis on prend la charge MÉDIANE de cette
+          // plage : le coup le plus tolérant au bruit de puissance (robuste).
+          let bestList=null,bestDA=0;
+          for(const dA of [0,-0.03,0.03]){
+            const angle=baseAngle+dA,hits=[];
+            for(let i=30;i<=60;i++){
+              const charge=i/60,speed=2+charge*14;
+              const vz=hN*(2+charge*9),vxy=speed*(1-hN*0.3);
+              const r=simulateLaunch(Math.cos(angle)*vxy,Math.sin(angle)*vxy,vz,hN,obstacles,hitTargetC);
+              if(r&&r.hit)hits.push({charge,pen:r.penalty});
+            }
+            if(!bestList||hits.length>bestList.length){bestList=hits;bestDA=dA;}
+          }
+          if(bestList&&bestList.length){
+            const mid=bestList[Math.floor(bestList.length/2)];
+            carreauCands.push({sc:mid.pen*80+Math.abs(bestDA)*10,
+              shot:{angle:baseAngle+bestDA,charge:mid.charge,hNorm:hN,carreau:true}});
+          }
+        }
+      }
+      // ── Arbitrage par valeur espérée (le carreau réussi garde le point :
+      //    gros bonus dans expectedShootValue ; raté plus fréquent : gros malus) ──
+      for(const cand of [shotBest].concat(carreauCands)){
+        if(!cand)continue;
+        // Bonus « panache » au carreau, croissant avec le talent de tir : un bon
+        // tireur ose le geste quand il est jouable ; un maladroit s'abstient
+        // (son taux de réussite simulé plombe de toute façon l'espérance).
+        // Le bonus reste borné : un carreau vraiment hasardeux perd l'arbitrage.
+        const ev=expectedShootValue(cand.shot,target,obstacles,rolling)-cand.sc*0.5
+                 +(cand.shot.carreau?(400+aiRaw.tir*1200):0);
+        if(!best||ev>best.value){best={value:ev,shot:cand.shot,target};}
+      }
     }
     return best;
   }
@@ -1169,7 +1334,7 @@ margin-top:12px;
         const plan=smartPlan();
         if(plan.isTir)aiTirsManche++;
         const noisy=applyNoiseSmart(plan.shot,plan.isTir);
-        setMsg('La Machine '+(plan.isTir?'tire sur une boule 🎯':'pointe vers le cochonnet 🏹'));
+        setMsg('La Machine '+(plan.isTir?(plan.shot.carreau?'tente le carreau ! 💥':'tire sur une boule 🎯'):'pointe vers le cochonnet 🏹'));
         setTimeout(()=>executeLaunch(noisy.vx,noisy.vy,noisy.vz,noisy.hNorm),300);
         return;
       }
@@ -1282,8 +1447,38 @@ margin-top:12px;
     updateMsg();
     if(isAiMode()&&cur===2)aiTurn();
   }
+  // Renvoie la meilleure boule de chaque équipe (ou null si une équipe est absente)
+  function measureContenders(){
+    const act=balls.filter(b=>b.active&&b.phase==='rolling');
+    let bestA=null,bestB=null;
+    for(const b of act){
+      const d=dist2(b,jack);
+      if(b.player===1){if(!bestA||d<bestA.d)bestA={ball:b,d};}
+      else if(b.player===2){if(!bestB||d<bestB.d)bestB={ball:b,d};}
+    }
+    return(bestA&&bestB)?{a:bestA,b:bestB}:null;
+  }
   function endManche(){
-    const{player,pts}=countPoints();
+    if(measureFx)return; // mesure en cours : nextTurn nous rappellera, on ignore
+    // Mesure contestée ? (les deux meilleures boules adverses quasi à égalité)
+    const cont=measureContenders();
+    if(cont&&Math.abs(cont.a.d-cont.b.d)<MEASURE_EPS){
+      const res=countPoints(); // résultat CAPTURÉ maintenant (sécurité réseau)
+      measureFx={
+        jack:{x:jack.x,y:jack.y},
+        a:cont.a,b:cont.b,
+        winner:res.player,
+        t0:performance.now(),
+        finished:false,
+        onDone:()=>endMancheReal(res)
+      };
+      setMsg('📏 Mesure en cours…');
+      return;
+    }
+    endMancheReal(countPoints());
+  }
+  function endMancheReal(res){
+    const{player,pts}=res;
     if(player&&pts>0){
       scoreTotal[player]+=pts;updateScore();
       lastWinner=player;
@@ -1342,6 +1537,7 @@ margin-top:12px;
       updateScore();
       state='aim';
       matchRecorded=false; // nouvelle partie → on pourra ré-enregistrer
+      genMatchEnv();       // nouveau match → nouveau terrain + nouvelle météo
     }
     if(raf)cancelAnimationFrame(raf);
     state='aim';mouse={x:SW/2,y:SH*0.55};charge=0;chargeDir=1;balls=[];boules={1:6,2:6};if(campReducedBoules)boules[1]=4;heightLevel=0.15;
@@ -1350,12 +1546,15 @@ margin-top:12px;
     const jackX=(1*SCALE)+Math.random()*(WORLD_W-2*SCALE);
     const jackY=(7.5*SCALE)+Math.random()*((12-7.5)*SCALE);
     jack={x:jackX,y:jackY,z:0,vx:0,vy:0,vz:0,mass:1.96,isJack:true,phase:'rolling',active:true};
+    traces=[];dust=[];        // terrain « ratissé » à chaque mène
+    measureFx=null;           // annule toute mesure en attente
+    // (flaques/vent/pluie : PERSISTANTS sur le match — générés dans genMatchEnv)
     updateScore();updateMsg();loop();
     onTurnStart();
     // En mode réseau : l'hôte envoie l'état initial de manche au guest
     if(gameMode==='pvr'&&netRole==='host'&&netConn&&netReady){
       setTimeout(()=>{
-        netConn.send(JSON.stringify({type:'newmanche',balls,jack,boules,scoreTotal,state,cur,lastWinner,teamNames}));
+        netConn.send(JSON.stringify({type:'newmanche',balls,jack,boules,scoreTotal,state,cur,lastWinner,teamNames,terrainZones,matchWind,matchRain}));
       },100);
     }
   };
@@ -1971,6 +2170,8 @@ margin-top:12px;
   // Démarre une nouvelle manche de challenge (au niveau chLevel courant)
   window.challengeNewManche=function(){
     if(raf)cancelAnimationFrame(raf);
+    traces=[];dust=[];terrainZones=[];measureFx=null; // pas de sable en challenge (précision pure)
+    matchWind={ax:0,ay:0,level:0,ang:0};matchRain=false; // ni vent ni pluie en challenge
     state='aim';mouse={x:SW/2,y:SH*0.55};charge=0;chargeDir=1;
     heightLevel=0.15;
     balls=[];boules={1:chLives(chLevel),2:0};cur=1; // vies selon le niveau
@@ -2880,13 +3081,16 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     document.body.classList.toggle('is-fullscreen',isFs);
     if(typeof netGrace==='function')netGrace();
     if(isFs){fitCanvasFullscreen();setTimeout(fitCanvasFullscreen,250);}
+    else if(document.body.classList.contains('in-game')){adjustCanvas();scheduleCanvasFit();}
     else resetCanvasDefault();
   });
   document.addEventListener('webkitfullscreenchange',()=>{
     const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
     document.body.classList.toggle('is-fullscreen',!!fsEl);
     if(typeof netGrace==='function')netGrace();
-    if(fsEl){fitCanvasFullscreen();setTimeout(fitCanvasFullscreen,250);}else resetCanvasDefault();
+    if(fsEl){fitCanvasFullscreen();setTimeout(fitCanvasFullscreen,250);}
+    else if(document.body.classList.contains('in-game')){adjustCanvas();scheduleCanvasFit();}
+    else resetCanvasDefault();
   });
   window.addEventListener('resize',()=>{
     if(document.fullscreenElement||document.webkitFullscreenElement){fitCanvasFullscreen();}
@@ -2931,6 +3135,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     document.getElementById('rules-hint').style.display='flex';
     document.getElementById('screen-rules').style.display='flex';
     scoreTotal={1:0,2:0};
+    genMatchEnv(); // terrain + météo du match (persistants sur toutes les mènes)
     newManche();
   };
 
@@ -2943,7 +3148,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   };
 
   window.showSelect=function(){
-    if(raf)cancelAnimationFrame(raf);
+    if(raf){cancelAnimationFrame(raf);raf=null;} // raf=null → le mode réseau pourra relancer loop()
     document.body.classList.remove('in-game');
     exitFullscreenIfAny();
     document.getElementById('screen-splash').style.display='none';
@@ -3080,7 +3285,17 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   }
   // kind : 'ball' (choc de boules, clac métallique), 'jack' (cochonnet, mat/doux),
   //        'ground' (atterrissage au sol, toc grave et sourd).
+  let lastVibe=0;
   function playImpactSound(force,kind){
+    // Vibration mobile : suit la force du choc (même échelle que le son),
+    // indépendante du bouton Son (fonctionne aussi téléphone en silencieux).
+    {
+      const fv=Math.max(0,Math.min(1,force/5));
+      if(fv>=0.06&&navigator.vibrate){
+        const nowMs=Date.now();
+        if(nowMs-lastVibe>60){lastVibe=nowMs;try{navigator.vibrate(Math.round(8+fv*35));}catch(e){}}
+      }
+    }
     if(!sonActive)return;
     const ctx=getAudioCtx();if(!ctx)return;
     if(ctx.state==='suspended')ctx.resume().catch(()=>{});
@@ -3335,13 +3550,57 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     }
   }
 
+  // ── Boule d'acier striée (rendu écran partagé jeu / vue rapprochée) ──
+  // Dégradé radial décentré (reflet haut-gauche), 3 stries gravées qui suivent
+  // la courbure de la sphère, reflet spéculaire, lumière chaude renvoyée par le
+  // sol, et cerclage couleur d'équipe pour l'identification immédiate.
+  function drawSteelBall(sx,sy,r,player){
+    const st=STEEL[player]||STEEL[1];
+    const g=ctx.createRadialGradient(sx-r*0.38,sy-r*0.42,r*0.08,sx,sy,r*1.12);
+    g.addColorStop(0,'#ffffff');
+    g.addColorStop(0.22,st.hi);
+    g.addColorStop(0.55,st.mid);
+    g.addColorStop(0.85,st.deep);
+    g.addColorStop(1,st.rim);
+    ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle=g;ctx.fill();
+    // Stries : cercles gravés autour de la sphère, vus en ellipses (face avant
+    // seulement), légèrement inclinés. Sillon sombre + arête claire = gravure.
+    if(r>3.2){
+      ctx.save();
+      ctx.beginPath();ctx.arc(sx,sy,r*0.985,0,Math.PI*2);ctx.clip();
+      ctx.translate(sx,sy);ctx.rotate(-0.42);
+      for(const lat of [-0.40,0.12,0.60]){
+        const cy=r*lat,rw=r*Math.sqrt(1-lat*lat),rh=Math.max(0.9,rw*0.34);
+        ctx.beginPath();ctx.ellipse(0,cy,rw,rh,0,-0.15,Math.PI+0.15);
+        ctx.strokeStyle='rgba(12,16,26,0.40)';ctx.lineWidth=Math.max(0.6,r*0.09);ctx.stroke();
+        ctx.beginPath();ctx.ellipse(0,cy+Math.max(0.5,r*0.06),rw,rh,0,-0.15,Math.PI+0.15);
+        ctx.strokeStyle='rgba(255,255,255,0.20)';ctx.lineWidth=Math.max(0.4,r*0.05);ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // Lumière chaude renvoyée par le gravier (croissant bas, discret)
+    ctx.beginPath();ctx.arc(sx,sy,r*0.88,Math.PI*0.20,Math.PI*0.80);
+    ctx.strokeStyle='rgba(232,206,148,0.22)';ctx.lineWidth=Math.max(0.6,r*0.09);ctx.stroke();
+    // Reflet spéculaire : halo doux + point net
+    ctx.beginPath();ctx.arc(sx-r*0.30,sy-r*0.34,r*0.30,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.20)';ctx.fill();
+    ctx.beginPath();ctx.arc(sx-r*0.34,sy-r*0.38,r*0.15,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.fill();
+    // Cerclage couleur d'équipe (épaisseur plafonnée : fin même en gros plan)
+    ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.strokeStyle=(COLORS[player]||COLORS[1]).stroke;ctx.lineWidth=Math.max(0.8,Math.min(2.0,r*0.14));ctx.stroke();
+  }
   function drawBallAt(x,y,z,rBase,player,ghost,alpha){
     const{sx,sy}=project(x,y,z),sc=scaleAt(y),r=rBase*sc;
     if(alpha!==undefined&&alpha<1)ctx.globalAlpha=alpha;
-    ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);
-    ctx.fillStyle=ghost?COLORS[player].light:COLORS[player].fill;ctx.fill();
-    ctx.strokeStyle=COLORS[player].stroke;ctx.lineWidth=Math.max(0.8,1.5*sc);ctx.stroke();
-    if(!ghost){ctx.beginPath();ctx.arc(sx-r*0.3,sy-r*0.3,r*0.28,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.28)';ctx.fill();}
+    if(ghost){ // fantôme de visée : rendu plat léger, inchangé
+      ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);
+      ctx.fillStyle=COLORS[player].light;ctx.fill();
+      ctx.strokeStyle=COLORS[player].stroke;ctx.lineWidth=Math.max(0.8,1.5*sc);ctx.stroke();
+    }else{
+      drawSteelBall(sx,sy,r,player);
+    }
     if(alpha!==undefined&&alpha<1)ctx.globalAlpha=1;
   }
   function drawShadow(x,y,z,rBase){
@@ -3361,6 +3620,23 @@ Corentin: On se retrouvera au prochain tournoi !"`;
       ctx.beginPath();ctx.moveTo(corners[0].sx,corners[0].sy);
       for(let i=1;i<4;i++)ctx.lineTo(corners[i].sx,corners[i].sy);
       ctx.closePath();ctx.fill();
+    }
+
+    // ── Zones de sable (friction accrue) : flaques claires granuleuses ──
+    for(const z of terrainZones){
+      const p=project(z.x,z.y,0),sc=scaleAt(z.y);
+      const rx=z.r*sc*1.15,ry=rx*0.5;
+      ctx.save();
+      ctx.beginPath();ctx.ellipse(p.sx,p.sy,rx,ry,0,0,Math.PI*2);
+      ctx.fillStyle='rgba(232,206,148,0.60)';ctx.fill();
+      ctx.strokeStyle='rgba(120,90,40,0.35)';ctx.lineWidth=1;ctx.stroke();
+      // grains déterministes (pas de scintillement) semés depuis la position
+      ctx.fillStyle='rgba(120,90,40,0.32)';
+      for(let i=0;i<9;i++){
+        const ga=i*2.399+z.x, gr=((i*0.618+z.y)%1);
+        ctx.fillRect(p.sx+Math.cos(ga)*rx*0.82*gr,p.sy+Math.sin(ga)*ry*0.82*gr,1.5,1.5);
+      }
+      ctx.restore();
     }
 
     // ── Grille de repères (atténuée sur le sable) ─────────
@@ -3555,9 +3831,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
       }
       const r=rank===0?8:rank===1?6.5:5.5;
       ctx.globalAlpha=rank===0?1:rank===1?0.85:0.7;
-      ctx.beginPath();ctx.arc(bx,by,r,0,Math.PI*2);
-      ctx.fillStyle=COLORS[o.ball.player].fill;ctx.fill();
-      ctx.strokeStyle=COLORS[o.ball.player].stroke;ctx.lineWidth=1.3;ctx.stroke();
+      drawSteelBall(bx,by,r,o.ball.player);
       ctx.globalAlpha=1;
       outlineText(String(rank+1),bx,by+3.5,'#fff','bold 8px sans-serif','center');
     }
@@ -3574,6 +3848,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   function draw(){
     ctx.fillStyle='#1a1a1a';ctx.fillRect(0,0,SW,SH);
     drawTerrain();
+    drawTraces();
 
     if((state==='aim'||state==='charge')&&!(isAiMode()&&cur===2)){
       const hRaw=heightLevel,barH=140,barW=11,barX=14,barY=SH/2-barH/2;
@@ -3653,6 +3928,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
       if(b.phase!=='flying'||!b.active)continue;
       drawBallAt(b.x,b.y,b.z,BR_BASE*(1+(b.z/80)*BR_FLY_MAX*b.hNorm),b.player,false,1);
     }
+    drawDust();
     if((state==='aim'||state==='charge')&&cur&&!(isAiMode()&&cur===2)){
       drawTrajectory();
       drawBallAt(ORIGIN.x,ORIGIN.y,0,BR_BASE*1.5,cur,true,0.7);
@@ -3755,9 +4031,188 @@ Corentin: On se retrouvera au prochain tournoi !"`;
       const panelRect=drawLeadPanel(lead);
       drawClosestBallRefCam(closestBallsToJack(3),panelRect);
     }
+    drawRain();
+    drawWeatherHUD();
+    drawMeasure();
+    drawEmotes();
+  }
+
+  // ── Animation mesure : le mètre se déroule du cochonnet vers chaque boule,
+  //    affiche les distances, puis désigne le point. ──
+  function drawMeasure(){
+    if(!measureFx)return;
+    const fx=measureFx,now=performance.now(),el=now-fx.t0;
+    const pj=project(fx.jack.x,fx.jack.y,0);
+    // Ruban de mesure : ligne jaune + graduations, déroulée progressivement
+    function tape(target,prog,dim){
+      if(prog<=0)return;
+      const pt=project(target.ball.x,target.ball.y,0);
+      const ex=pj.sx+(pt.sx-pj.sx)*prog,ey=pj.sy+(pt.sy-pj.sy)*prog;
+      ctx.save();
+      ctx.globalAlpha=dim?0.45:1;
+      ctx.strokeStyle='#ffe14a';ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.moveTo(pj.sx,pj.sy);ctx.lineTo(ex,ey);ctx.stroke();
+      // graduations perpendiculaires tous les ~14 px écran
+      const dx=ex-pj.sx,dy=ey-pj.sy,len=Math.hypot(dx,dy)||1;
+      const nx=-dy/len,ny=dx/len;
+      ctx.lineWidth=1.4;
+      for(let d=14;d<len;d+=14){
+        const gx=pj.sx+dx*d/len,gy=pj.sy+dy*d/len;
+        ctx.beginPath();ctx.moveTo(gx-nx*3,gy-ny*3);ctx.lineTo(gx+nx*3,gy+ny*3);ctx.stroke();
+      }
+      // étiquette distance à l'arrivée du ruban
+      if(prog>=1){
+        const cm=(target.d*100/SCALE).toFixed(1)+' cm';
+        outlineText(cm,pt.sx,pt.sy-14,'#ffe14a','bold 13px sans-serif','center');
+      }
+      ctx.restore();
+    }
+    // Phases : 0-350 annonce · 350-1150 ruban A · 1150-1950 ruban B · 1950-2600 verdict
+    if(el<1950)outlineText('📏 MESURE !',pj.sx,pj.sy-26,'#fff','bold 15px sans-serif','center');
+    const progA=Math.min(1,Math.max(0,(el-350)/650));
+    const progB=Math.min(1,Math.max(0,(el-1150)/650));
+    tape(fx.a,progA,el>=1950);
+    tape(fx.b,progB,el>=1950);
+    if(el>=1950){
+      // Verdict : anneau pulsant sur la boule gagnante + annonce colorée
+      const win=fx.winner===1?fx.a:fx.b;
+      const pw=project(win.ball.x,win.ball.y,0),sc=scaleAt(win.ball.y);
+      const pulse=1+0.25*Math.sin((el-1950)/90);
+      ctx.save();
+      ctx.strokeStyle=COLORS[fx.winner].fill;ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(pw.sx,pw.sy,BR_BASE*sc*1.6*pulse,0,Math.PI*2);ctx.stroke();
+      ctx.restore();
+      outlineText('LE POINT : '+teamLabel(fx.winner),pj.sx,pj.sy-26,COLORS[fx.winner].fill,'bold 15px sans-serif','center');
+    }
+    // Petits « clics » sonores à la fin de chaque ruban
+    if(!fx.sndA&&progA>=1){fx.sndA=true;playImpactSound(0.6,'jack');}
+    if(!fx.sndB&&progB>=1){fx.sndB=true;playImpactSound(0.6,'jack');}
+    // Fin d'animation → on déroule la vraie fin de mène (une seule fois)
+    if(el>=MEASURE_DUR&&!fx.finished){
+      fx.finished=true;
+      measureFx=null;
+      if(fx.onDone)fx.onDone();
+    }
+  }
+
+  // ── HUD météo (haut-gauche) : flèche de vent + texte À DROITE, lisible ──
+  function drawWeatherHUD(){
+    if(gameMode==='challenge')return;
+    const x=10,y=10,col=WIND_HUD_COLORS[matchWind.level];
+    const windTxt='VENT '+WIND_NAMES[matchWind.level];
+    const rainTxt='🌧 PLUIE — sol lourd';
+    ctx.save();
+    // Boîte dimensionnée sur le texte le plus large
+    ctx.font='bold 16px sans-serif';
+    let tw=ctx.measureText(windTxt).width;
+    if(matchRain){ctx.font='bold 14px sans-serif';tw=Math.max(tw,ctx.measureText(rainTxt).width);}
+    const w=46+tw+12,h=matchRain?56:32;
+    ctx.fillStyle='rgba(0,0,0,0.45)';rrect(x,y,w,h,7);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=1;rrect(x,y,w,h,7);ctx.stroke();
+    // Flèche de vent orientée (aplatie en y pour coller à la perspective).
+    // IMPORTANT : save/restore autour de la rotation — surtout PAS de
+    // setTransform(identité), qui écraserait l'échelle devicePixelRatio du
+    // canvas mobile et enverrait le texte réduit en haut à gauche (bug vu à
+    // l'écran : texte au-dessus de la flèche au lieu d'à sa droite).
+    ctx.save();
+    ctx.translate(x+22,y+16);ctx.rotate(Math.atan2(Math.sin(matchWind.ang)*0.5,Math.cos(matchWind.ang)));
+    ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(-11,0);ctx.lineTo(7,0);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(13,0);ctx.lineTo(4,-6);ctx.lineTo(4,6);ctx.closePath();ctx.fill();
+    ctx.restore();
+    // Texte à droite de la flèche, aligné verticalement sur elle
+    outlineText(windTxt,x+46,y+22,col,'bold 16px sans-serif','left');
+    if(matchRain)outlineText(rainTxt,x+46,y+45,'#9fc4ef','bold 14px sans-serif','left');
+    ctx.restore();
+  }
+
+  // ── Pluie : traits obliques (inclinés par le vent) + voile froid léger ──
+  function drawRain(){
+    if(!matchRain||gameMode==='challenge')return;
+    const now=performance.now();
+    const slant=matchWind.ax*2600; // inclinaison des gouttes selon le vent
+    ctx.save();
+    ctx.strokeStyle='rgba(190,210,235,0.34)';ctx.lineWidth=1;
+    ctx.beginPath();
+    for(let i=0;i<70;i++){
+      const spd=5+(i%5);                      // vitesses variées
+      const px=((i*89.7)+now*0.02*slant)%SW;  // dérive horizontale du rideau
+      const py=((i*53.3)+now*0.06*spd)%SH;
+      const gx=(px+SW)%SW,gy=py;
+      ctx.moveTo(gx,gy);ctx.lineTo(gx+slant*0.004,gy+9);
+    }
+    ctx.stroke();
+    ctx.fillStyle='rgba(110,130,165,0.06)';ctx.fillRect(0,0,SW,SH); // voile froid
+    ctx.restore();
+  }
+
+  // ── Traces dans le gravier : petites ellipses sombres qui s'estompent ──
+  function drawTraces(){
+    for(let i=traces.length-1;i>=0;i--){
+      const t=traces[i];
+      t.a-=0.00015; // fondu ~7 s (opacité de départ 0.075)
+      if(t.a<=0.015){traces.splice(i,1);continue;}
+      const p=project(t.x,t.y,0),sc=scaleAt(t.y);
+      const ang=t.ang||0;
+      // Sillon allongé dans le sens du roulement : cœur sombre…
+      ctx.beginPath();ctx.ellipse(p.sx,p.sy,t.r*sc*1.4,t.r*sc*0.5,ang,0,Math.PI*2);
+      ctx.fillStyle='rgba(52,32,10,'+t.a.toFixed(3)+')';ctx.fill();
+      // …et bourrelet clair au-dessus (gravier repoussé)
+      ctx.beginPath();ctx.ellipse(p.sx,p.sy-t.r*sc*0.4,t.r*sc*1.1,t.r*sc*0.22,ang,0,Math.PI*2);
+      ctx.fillStyle='rgba(240,215,160,'+(t.a*0.55).toFixed(3)+')';ctx.fill();
+    }
+  }
+  // ── Poussière : particules sable qui montent et retombent en s'effaçant ──
+  function drawDust(){
+    for(let i=dust.length-1;i>=0;i--){
+      const d=dust[i];
+      d.vx+=matchWind.ax*1.5; // la poussière s'envole avec le vent
+      d.x+=d.vx;d.y+=d.vy;d.z+=d.vz;d.vz-=0.08;d.life-=0.035;
+      if(d.life<=0||d.z<0){dust.splice(i,1);continue;}
+      const p=project(d.x,d.y,d.z),sc=scaleAt(d.y);
+      ctx.beginPath();ctx.arc(p.sx,p.sy,(1.1+d.life*1.6)*sc,0,Math.PI*2);
+      ctx.fillStyle='rgba(216,185,122,'+(d.life*0.65).toFixed(3)+')';ctx.fill();
+    }
+  }
+  // ── Bulles d'emotes réseau, empilées en haut du terrain ──
+  function drawEmotes(){
+    if(!emoteFx.length)return;
+    const now=performance.now();
+    emoteFx=emoteFx.filter(e=>now-e.ts<3500);
+    let yOff=54;
+    ctx.save();
+    for(const e of emoteFx){
+      const age=now-e.ts, a=age>2700?Math.max(0,1-(age-2700)/800):1;
+      ctx.globalAlpha=a;
+      const txt=(e.p===1?'🔵 ':'🔴 ')+e.t;
+      ctx.font='bold 14px sans-serif';
+      const w=ctx.measureText(txt).width+18;
+      const x=SW/2-w/2,y=yOff-15;
+      ctx.fillStyle='rgba(0,0,0,0.65)';
+      ctx.beginPath();
+      if(ctx.roundRect)ctx.roundRect(x,y,w,21,7);else ctx.rect(x,y,w,21);
+      ctx.fill();
+      ctx.fillStyle='#fff';ctx.textAlign='center';
+      ctx.fillText(txt,SW/2,yOff);
+      yOff+=25;
+    }
+    ctx.restore();
   }
 
   function syncEndArb(){
+    // Bouton Revanche : visible uniquement en réseau, match terminé
+    {
+      const br=document.getElementById('btn-rematch');
+      if(br){
+        const want=(gameMode==='pvr'&&netReady&&state==='match')?'':'none';
+        if(br.style.display!==want)br.style.display=want;
+      }
+      const eb=document.getElementById('emote-bar');
+      if(eb){
+        const want=(gameMode==='pvr'&&netReady)?'flex':'none';
+        if(eb.style.display!==want)eb.style.display=want;
+      }
+    }
     const el=document.getElementById('end-arb');
     if(!el)return;
     if(['done','cancelled','match'].includes(state)){
@@ -3780,6 +4235,30 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   // Génère un code court lisible (6 chiffres)
   function netMakeId(){return Math.floor(100000+Math.random()*900000).toString();}
 
+  // Crée un Peer robuste : serveurs STUN supplémentaires (meilleure traversée
+  // NAT mobile) + reconnexion AUTOMATIQUE au serveur de signalisation.
+  // Sur mobile, une rotation, un passage en plein écran ou une bascule d'appli
+  // (ex : envoyer le code par messagerie) gèle l'onglet et coupe la websocket
+  // PeerJS : sans reconnect(), l'hôte devient injoignable (peer-unavailable).
+  function netNewPeer(id){
+    const p=new Peer(id,{debug:0,config:{iceServers:[
+      {urls:'stun:stun.l.google.com:19302'},
+      {urls:'stun:stun1.l.google.com:19302'},
+      {urls:'stun:global.stun.twilio.com:3478'}
+    ]}});
+    p.on('disconnected',()=>{
+      if(!p.destroyed){try{p.reconnect();}catch(e){}}
+    });
+    return p;
+  }
+  // Retour au premier plan : si la signalisation est tombée pendant le gel,
+  // on la relance immédiatement (l'hôte redevient joignable, l'invité aussi).
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'&&netPeer&&netPeer.disconnected&&!netPeer.destroyed){
+      try{netPeer.reconnect();}catch(e){}
+    }
+  });
+
   window.copyNetId=function(){
     const id=document.getElementById('net-myid').textContent;
     navigator.clipboard&&navigator.clipboard.writeText(id).then(()=>{
@@ -3799,7 +4278,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
 
     // Chargement dynamique de PeerJS si nécessaire
     netLoadPeer(()=>{
-      netPeer=new Peer(myId,{debug:0});
+      netPeer=netNewPeer(myId);
       netPeer.on('open',id=>{
         document.getElementById('net-myid').textContent=id;
         document.getElementById('net-status').textContent='En attente de connexion…';
@@ -3828,14 +4307,58 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   window.netJoin=function(){
     const remoteId=document.getElementById('net-remote-id').value.trim();
     if(!remoteId){document.getElementById('net-join-status').textContent='Entre un code.';return;}
+    // Repart d'un état réseau propre même si une session précédente traîne
+    if(netPeer||netReady)netCleanup();
     netRole='guest';
+    netJoinTries=0;
+    if(netJoinTimer){clearTimeout(netJoinTimer);netJoinTimer=null;}
     document.getElementById('net-join-status').textContent='Connexion…';
     netLoadPeer(()=>{
-      netPeer=new Peer(netMakeId(),{debug:0});
-      netPeer.on('open',()=>{
-        netConn=netPeer.connect(remoteId,{reliable:true});
-        netSetupConn();
-        netConn.on('open',()=>{
+      netPeer=netNewPeer(netMakeId());
+      netPeer.on('open',()=>{netTryConnect(remoteId);});
+      netPeer.on('error',e=>{
+        // « peer-unavailable » : l'hôte est peut-être momentanément coupé du
+        // serveur de signalisation (plein écran, rotation, bascule d'appli…).
+        // On retente automatiquement quelques fois avant d'abandonner.
+        if(e&&e.type==='peer-unavailable'&&!netReady&&netJoinTries<NET_JOIN_MAX){
+          document.getElementById('net-join-status').textContent='Hôte injoignable, nouvel essai '+netJoinTries+'/'+NET_JOIN_MAX+'…';
+          netJoinTimer=setTimeout(()=>netTryConnect(remoteId),2500);
+        }else{
+          document.getElementById('net-join-status').textContent='Erreur: '+((e&&e.type)||e);
+        }
+      });
+    });
+  };
+
+  // Tente (ou retente) d'ouvrir le canal de données vers l'hôte.
+  let netJoinTries=0,netJoinTimer=null,netOpenTimeout=null;
+  const NET_JOIN_MAX=5;      // nombre max de tentatives
+  const NET_OPEN_TIMEOUT=8000; // délai max d'ouverture du canal avant nouvel essai
+  function netTryConnect(remoteId){
+    if(!netPeer||netPeer.destroyed||netReady)return;
+    netJoinTries++;
+    if(netJoinTimer){clearTimeout(netJoinTimer);netJoinTimer=null;}
+    if(netOpenTimeout){clearTimeout(netOpenTimeout);netOpenTimeout=null;}
+    if(netConn){try{netConn.close();}catch(e){}}
+    // Si la signalisation est tombée entre-temps, on la relance d'abord.
+    if(netPeer.disconnected){try{netPeer.reconnect();}catch(e){}}
+    netConn=netPeer.connect(remoteId,{reliable:true});
+    netSetupConn();
+    // Garde-fou : si le canal ne s'ouvre pas (hôte gelé, réseau lent…), on retente.
+    const connRef=netConn;
+    netOpenTimeout=setTimeout(()=>{
+      if(netReady||connRef!==netConn)return;
+      if(!(netConn&&netConn.open)){
+        if(netJoinTries<NET_JOIN_MAX){
+          document.getElementById('net-join-status').textContent='Connexion lente, nouvel essai '+netJoinTries+'/'+NET_JOIN_MAX+'…';
+          netTryConnect(remoteId);
+        }else{
+          document.getElementById('net-join-status').textContent='Impossible de joindre l\'hôte. Vérifie le code et réessaie.';
+        }
+      }
+    },NET_OPEN_TIMEOUT);
+    netConn.on('open',()=>{
+      if(netOpenTimeout){clearTimeout(netOpenTimeout);netOpenTimeout=null;}
           document.getElementById('net-join-status').textContent='✓ Connecté ! Attente du départ…';
           // Préparer l'affichage côté guest sans attendre l'état
           netRole='guest';
@@ -3868,11 +4391,8 @@ Corentin: On se retrouvera au prochain tournoi !"`;
           if(!raf)loop();
           adjustCanvas();scheduleCanvasFit();
         });
-        netConn.on('error',e=>document.getElementById('net-join-status').textContent='Erreur: '+e);
-      });
-      netPeer.on('error',e=>document.getElementById('net-join-status').textContent='Erreur: '+e.type);
-    });
-  };
+    netConn.on('error',e=>{if(!netReady)document.getElementById('net-join-status').textContent='Erreur: '+e;});
+  }
 
   function netLoadPeer(cb){
     if(window.Peer){cb();return;}
@@ -3953,6 +4473,9 @@ Corentin: On se retrouvera au prochain tournoi !"`;
 
   function netCleanup(){
     netStopHeartbeat();
+    // Stoppe les éventuelles tentatives de reconnexion de l'invité
+    if(netJoinTimer){clearTimeout(netJoinTimer);netJoinTimer=null;}
+    if(netOpenTimeout){clearTimeout(netOpenTimeout);netOpenTimeout=null;}
     // Prévenir l'adversaire qu'on quitte proprement (s'il est encore là)
     if(netConn&&netConn.open){try{netConn.send(JSON.stringify({type:'bye'}));}catch(e){}}
     if(netConn){try{netConn.close();}catch(e){}}
@@ -3964,6 +4487,30 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   window.addEventListener('beforeunload',()=>{
     if(netConn&&netConn.open){try{netConn.send(JSON.stringify({type:'bye'}));}catch(e){}}
   });
+
+  // ── Revanche rapide : rejouer sans repasser par l'échange de code ──
+  window.netRematch=function(){
+    if(gameMode!=='pvr'||state!=='match'||!netReady)return;
+    if(netConn&&netConn.open){try{netConn.send(JSON.stringify({type:'rematch'}));}catch(e){}}
+    if(netRole==='host'){
+      newManche(); // remet les scores à 0 (state==='match') et envoie la nouvelle mène
+    }else{
+      setMsg('🔁 Revanche demandée — en attente de l\'hôte…');
+    }
+  };
+
+  // ── Emotes / taunts réseau ──
+  const EMOTES=['👏 Bien joué !','😮 Oh le carreau !','🍀 Petit chanceux…','😎 Regarde et apprends','🤝 GG !'];
+  let lastEmoteSent=0;
+  window.sendEmote=function(i){
+    if(gameMode!=='pvr'||!netReady)return;
+    const now=Date.now();
+    if(now-lastEmoteSent<1500)return; // anti-spam : 1 emote / 1,5 s
+    lastEmoteSent=now;
+    const myP=netRole==='host'?1:2;
+    emoteFx.push({p:myP,t:EMOTES[i]||EMOTES[0],ts:performance.now()});
+    if(netConn&&netConn.open){try{netConn.send(JSON.stringify({type:'emote',i}));}catch(e){}}
+  };
 
   // Nom d'équipe choisi par le joueur local en mode réseau
   function netMyTeamName(){
@@ -3996,13 +4543,17 @@ Corentin: On se retrouvera au prochain tournoi !"`;
 
   // Sérialise l'état complet du jeu
   function netSerialize(){
-    return JSON.stringify({type:'state',balls,jack,boules,scoreTotal,state,cur,lastWinner,teamNames});
+    return JSON.stringify({type:'state',balls,jack,boules,scoreTotal,state,cur,lastWinner,teamNames,terrainZones,matchWind,matchRain});
   }
 
   // Applique un état reçu
   function netApplyState(s){
     balls=s.balls;jack=s.jack;boules=s.boules;scoreTotal=s.scoreTotal;
     state=s.state;cur=s.cur;lastWinner=s.lastWinner;
+    if(s.terrainZones)terrainZones=s.terrainZones; // zones de sable synchronisées
+    if(s.matchWind)matchWind=s.matchWind;           // météo synchronisée
+    if(s.matchRain!==undefined)matchRain=s.matchRain;
+    if(!s.balls||s.balls.length===0){traces=[];dust=[];measureFx=null;} // nouvelle mène → terrain ratissé, mesure annulée
     // Synchronise les noms d'équipe si fournis (sans écraser par un placeholder)
     if(s.teamNames){
       [1,2].forEach(p=>{
@@ -4042,6 +4593,23 @@ Corentin: On se retrouvera au prochain tournoi !"`;
       if(msg.type==='pong'){return;} // juste un signe de vie, déjà enregistré
       if(msg.type==='bye'){ // l'adversaire quitte proprement
         netHandleLost();
+        return;
+      }
+      if(msg.type==='emote'){
+        const opp=netRole==='host'?2:1;
+        emoteFx.push({p:opp,t:EMOTES[msg.i]||'👋',ts:performance.now()});
+        return;
+      }
+      if(msg.type==='rematch'){
+        if(netRole==='host'){
+          // L'invité demande sa revanche : l'hôte relance automatiquement
+          if(state==='match'){
+            setMsg('🔁 L\'adversaire veut sa revanche !');
+            setTimeout(()=>{if(state==='match'&&gameMode==='pvr')newManche();},800);
+          }
+        }else{
+          setMsg('🔁 Revanche ! Nouvelle partie…');
+        }
         return;
       }
       if(msg.type==='teamname'){
