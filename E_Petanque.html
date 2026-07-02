@@ -512,9 +512,9 @@ margin-top:12px;
       </div>
     </div>
     <button class="sel-btn" id="btn-pvp" onclick="selectMode('pvp')">👥 Joueur contre Joueur<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">en local</span></button>
-    <button class="sel-btn" id="btn-pvr" onclick="selectMode('pvr')">⚡ Joueur par réseau</button>
+    <button class="sel-btn" id="btn-pvr" onclick="selectMode('pvr')">⚡ Partie en ligne</button>
     <button class="sel-btn" id="btn-classement" onclick="openClassement()">🏆 Classement</button>
-    <button onclick="showMainMenu()" style="font-size:9px;font-family:'Press Start 2P',monospace;padding:8px 16px;background:#1a1a30;border:1px solid #555;color:#aaa;cursor:pointer;">← Retour</button>
+    <button id="btn-niveau2-back" onclick="showMainMenu()" style="font-size:9px;font-family:'Press Start 2P',monospace;padding:8px 16px;background:#1a1a30;border:1px solid #555;color:#aaa;cursor:pointer;">← Retour</button>
   </div>
 
   <!-- Bouton PvC caché (activé programmatiquement par Jeu Solo) -->
@@ -583,7 +583,6 @@ margin-top:12px;
 <div class="side-panel" id="side-right">
   <div id="msg">—</div>
   <button onclick="showSelect()">Menu</button>
-  <button onclick="newManche()">Nouvelle manche</button>
   <button id="btn-rematch" onclick="netRematch()" style="display:none">🔁 Revanche</button>
   <div id="emote-bar" style="display:none">
     <button onclick="sendEmote(0)" title="Bien joué !">👏</button>
@@ -593,7 +592,6 @@ margin-top:12px;
     <button onclick="sendEmote(4)" title="GG !">🤝</button>
   </div>
   <button onclick="requestFullscreenLandscape()">⛶ Plein écran</button>
-  <button onclick="openStandalone()">↗ Nouvel onglet</button>
   <button id="btn-son" onclick="toggleSon()">🔊 Son</button>
 </div>
 </div>
@@ -2540,6 +2538,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   window.showSubMenuMulti=function(){
     document.getElementById('menu-niveau1').style.display='none';
     document.getElementById('menu-niveau2').style.display='flex';
+    {const nb=document.getElementById('btn-niveau2-back');if(nb)nb.style.display='';}
     refreshPseudoDisplay();
     // Première venue : si aucun pseudo enregistré, on le demande
     if(!getPseudo()){
@@ -2909,6 +2908,8 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     // (Partie rapide = pvc → menu Solo ; pvp/pvr → menu Multi).
     configBackTarget=(m==='pvc')?'solo':'multi';
     document.getElementById('btn-config-back').style.display='block';
+    // Un seul « Retour » à l'écran : celui de la config remplace celui du menu
+    {const nb=document.getElementById('btn-niveau2-back');if(nb)nb.style.display='none';}
   };
 
   let configBackTarget='solo';
@@ -2926,6 +2927,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     if(configBackTarget==='multi'){
       document.getElementById('menu-niveau1').style.display='none';
       document.getElementById('menu-niveau2').style.display='flex';
+      {const nb=document.getElementById('btn-niveau2-back');if(nb)nb.style.display='';}
       refreshPseudoDisplay();
     }else{
       showSubMenuSolo();
