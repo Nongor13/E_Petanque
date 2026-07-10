@@ -554,7 +554,13 @@ margin-top:12px;
     <button class="sel-btn" id="btn-camp-normal" onclick="startCampagne('normal')">▶ Mode Normal<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">IA classique · on peut perdre sans reculer</span></button>
     <button class="sel-btn" id="btn-camp-transpi" onclick="startCampagne('transpi')">💦 Mode Transpi<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">IA tactique · on peut perdre sans reculer</span></button>
     <button class="sel-btn" id="btn-camp-hardcore" onclick="startCampagne('hardcore')">💀 Mode Hardcore<br><span style="font-size:8px;font-family:'Press Start 2P',monospace;">IA tactique · une défaite = retour au début</span></button>
-    <button id="btn-camp-reset" onclick="resetCampagneNormal()" style="display:none;font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#3a1a1a;border:1px solid #884444;color:#d0a0a0;cursor:pointer;">↺ Recommencer depuis le début</button>
+    <button id="btn-camp-reset" onclick="toggleCampResetRow()" style="display:none;font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#3a1a1a;border:1px solid #884444;color:#d0a0a0;cursor:pointer;">↺ Réinitialiser une progression…</button>
+    <div id="camp-reset-row" style="display:none;gap:6px;flex-wrap:wrap;justify-content:center;">
+      <button onclick="resetCampagne('normal')" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 10px;background:#3a1a1a;border:1px solid #884444;color:#d0a0a0;cursor:pointer;">Normal</button>
+      <button onclick="resetCampagne('transpi')" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 10px;background:#3a1a1a;border:1px solid #884444;color:#d0a0a0;cursor:pointer;">Transpi</button>
+      <button onclick="resetCampagne('hardcore')" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 10px;background:#3a1a1a;border:1px solid #884444;color:#d0a0a0;cursor:pointer;">Hardcore</button>
+      <button onclick="resetCampagne('tout')" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 10px;background:#551a1a;border:1px solid #aa4444;color:#ffb0b0;cursor:pointer;">Tout</button>
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
       <button onclick="openCampClassement('normal')" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#1a2a40;border:2px solid #c8a020;color:#ffe87a;cursor:pointer;">🏆 Classement Normal</button>
       <button onclick="openCampClassement('transpi')" style="font-size:8px;font-family:'Press Start 2P',monospace;padding:8px 12px;background:#2a2440;border:2px solid #c8a020;color:#ffe87a;cursor:pointer;">💦 Classement Transpi</button>
@@ -626,6 +632,8 @@ margin-top:12px;
       <div id="net-myid" style="font-size:13px;color:#ffe87a;font-family:'Press Start 2P',monospace;background:#111;padding:8px 14px;border:2px solid #c8a020;border-radius:4px;letter-spacing:2px;cursor:pointer;" onclick="copyNetId()" title="Cliquer pour copier">…</div>
       <div style="font-size:8px;color:#666;font-family:'Press Start 2P',monospace;">Partage ce code à l'adversaire</div>
       <div id="net-status" style="font-size:8px;color:#aaa;font-family:'Press Start 2P',monospace;min-height:16px;">En attente de connexion…</div>
+      <div id="net-lobby" style="display:none;flex-direction:column;gap:4px;font-size:9px;font-family:'Press Start 2P',monospace;background:rgba(0,0,0,0.35);border:1px solid #444;border-radius:6px;padding:8px 12px;min-width:230px;text-align:left;"></div>
+      <button id="btn-net-start2" onclick="netStartGame2()" disabled style="display:none;font-size:9px;font-family:'Press Start 2P',monospace;padding:10px 16px;background:#2f6b2f;border:2px solid #8fd48f;color:#dfffdf;cursor:pointer;">Lancer (1/4)</button>
     </div>
     <div id="net-join-section" style="display:none;flex-direction:column;gap:6px;align-items:center;width:100%;">
       <div style="font-size:9px;color:#aaa;font-family:'Press Start 2P',monospace;">Code de l'hôte :</div>
@@ -635,7 +643,8 @@ margin-top:12px;
       <div id="net-join-status" style="font-size:8px;color:#aaa;font-family:'Press Start 2P',monospace;min-height:16px;"></div>
     </div>
     <div style="display:flex;gap:8px;width:100%;">
-      <button onclick="netInitHost()" style="flex:1;font-size:9px;">🏠 Créer la partie</button>
+      <button onclick="netInitHost('1v1')" style="flex:1;font-size:9px;">🏠 Duel (1v1)</button>
+      <button onclick="netInitHost('2v2')" style="flex:1;font-size:9px;">👥 Doublette (2v2)</button>
       <button onclick="netInitJoin()" style="flex:1;font-size:9px;">🔗 Rejoindre</button>
     </div>
   </div>
@@ -780,10 +789,193 @@ margin-top:12px;
   const MEASURE_EPS=3;      // écart en px monde (3 px = 7,5 cm) déclenchant la mesure
   const MEASURE_DUR=2600;   // durée totale de l'animation (ms)
   let measureFx=null;       // {jack,a,b,winner,t0,onDone,finished}
+  // ═══ Tirage au sort de début de match ═══
+  // Alternance bleu/rouge qui décélère et s'arrête sur l'équipe qui commence.
+  // Sert aussi de GEL : tant que le tirage (ou un dialogue, ou l'écran de
+  // règles) est affiché, ni l'IA ni le joueur ne peuvent lancer.
+  let matchTossPending=false; // un tirage doit être joué avant la 1re boule
+  let tossForcedWinner=0;     // résultat imposé (invité réseau : celui de l'hôte)
+  let tossFx=null;            // animation en cours
+  function inputFrozen(){return matchTossPending||!!tossFx;}
+  function overlayBlocking(){ // un overlay bloque-t-il le début de partie ?
+    if(dialogueActive)return true;
+    const v=document.getElementById('screen-versus');
+    if(v&&v.style.display==='flex')return true;
+    const r=document.getElementById('screen-rules');
+    if(r&&r.style.display==='flex')return true;
+    return false;
+  }
+  function startTossFx(winner){
+    // Séquence d'alternances qui décélère ; la parité de départ est choisie
+    // pour que la dernière alternance tombe exactement sur le gagnant.
+    const sw=[];let t=0,dt=70;
+    while(t<1900){t+=dt;sw.push(t);dt*=1.22;}
+    const side0=(sw.length%2===0)?winner:(3-winner);
+    tossFx={winner,switches:sw,t0:performance.now(),side0,endT:t+1100,lastTick:-1};
+  }
+  function drawTossFx(){
+    const fx=tossFx;if(!fx)return;
+    const now=performance.now(),el=now-fx.t0;
+    let k=0;while(k<fx.switches.length&&el>=fx.switches[k])k++;
+    if(k!==fx.lastTick&&k<fx.switches.length){fx.lastTick=k;playImpactSound(0.5,'jack');}
+    const done=(k>=fx.switches.length);
+    const side=done?fx.winner:((k%2===0)?fx.side0:(3-fx.side0));
+    // Panneau central assorti aux bandeaux
+    const w=340,h=158,x=SW/2-w/2,y=SH/2-h/2;
+    const grad=ctx.createLinearGradient(0,y,0,y+h);
+    grad.addColorStop(0,'rgba(8,8,14,0.95)');grad.addColorStop(1,'rgba(22,20,32,0.92)');
+    ctx.fillStyle=grad;rrect(x,y,w,h,10);ctx.fill();
+    ctx.strokeStyle='#ffe87a';ctx.lineWidth=2;rrect(x,y,w,h,10);ctx.stroke();
+    outlineText('🎲 TIRAGE AU SORT',SW/2,y+26,'#ffe87a','bold 15px sans-serif','center');
+    // Les deux équipes
+    const chips=[{p:1,cx:x+90},{p:2,cx:x+w-90}];
+    for(const c of chips){
+      const active=(side===c.p);
+      const cy=y+76;
+      if(active){
+        const pulse=done?(1+0.18*Math.sin(now/110)):1.12;
+        ctx.save();ctx.globalAlpha=0.9;
+        ctx.strokeStyle=COLORS[c.p].fill;ctx.lineWidth=3;
+        ctx.beginPath();ctx.arc(c.cx,cy,24*pulse,0,Math.PI*2);ctx.stroke();
+        ctx.globalAlpha=0.25;ctx.fillStyle=COLORS[c.p].fill;
+        ctx.beginPath();ctx.arc(c.cx,cy,24*pulse,0,Math.PI*2);ctx.fill();
+        ctx.restore();
+      }
+      drawSteelBall(c.cx,cy,16,c.p);
+      const nm=(teamLabel(c.p)||('Équipe '+c.p));
+      ctx.font=(active?'bold ':'')+'11px sans-serif';
+      ctx.fillStyle=active?COLORS[c.p].fill:'rgba(255,255,255,0.55)';
+      ctx.textAlign='center';
+      ctx.fillText(nm.length>16?nm.slice(0,15)+'…':nm,c.cx,cy+40);
+    }
+    if(done){
+      outlineText('▶ '+(teamLabel(fx.winner)||('Équipe '+fx.winner))+' COMMENCE !',
+        SW/2,y+h-14,COLORS[fx.winner].fill,'bold 13px sans-serif','center');
+    }
+    if(el>=fx.endT){
+      tossFx=null;matchTossPending=false;tossForcedWinner=0;
+      updateMsg(); // l'IA en attente (aiTurn se ré-arme tout seul) peut jouer
+    }
+  }
+
+  // ═══ REPLAY cinématique « Bollywood » ═══
+  // Pendant chaque lancer, les positions sont enregistrées frame par frame.
+  // Sur un CARREAU (boule plombée, choc franc) ou un gros choc en BALLE DE
+  // MATCH, quand tout s'arrête : rediffusion au ralenti (mi-vitesse) zoomée
+  // sur l'impact, letterbox doré, rayons tournants, flash + « TOUCHÉ !! »,
+  // stinger sonore. Passable avec Espace / tap.
+  const REPLAY_PRE=55,REPLAY_POST=65; // fenêtre autour de l'impact (frames)
+  let replayBuf=[],replayMark=null,replayFx=null;
+  function recSnapshot(){
+    if(replayFx)return;
+    if(!balls||!balls.length)return;
+    replayBuf.push({
+      balls:balls.map(b=>({x:b.x,y:b.y,z:b.z,player:b.player,active:b.active})),
+      jack:jack?{x:jack.x,y:jack.y,z:jack.z}:null
+    });
+    if(replayBuf.length>400)replayBuf.shift();
+  }
+  function maybeMarkReplay(striker,dot,x,y){
+    if(gameMode==='challenge')return;
+    const carreau=striker&&(striker.hNorm||0)>0.4&&dot>1.8;
+    const matchPoint=(scoreTotal[1]>=12||scoreTotal[2]>=12)&&dot>2.2;
+    if(!(carreau||matchPoint))return;
+    // On garde le choc le plus violent du lancer
+    if(!replayMark||dot>replayMark.dot)replayMark={idx:replayBuf.length-1,dot,x,y};
+  }
+  function startReplay(){
+    const m=replayMark;replayMark=null;
+    const start=Math.max(0,m.idx-REPLAY_PRE);
+    const end=Math.min(replayBuf.length-1,m.idx+REPLAY_POST);
+    if(end-start<8)return; // fenêtre trop courte : pas de cinéma
+    replayFx={frames:replayBuf.slice(start,end+1),impact:m.idx-start,
+      x:m.x,y:m.y,i:0,half:false,boomT:0};
+    playReplayWhoosh();
+  }
+  // Stingers sonores (Web Audio, sans fichier)
+  function playReplayWhoosh(){
+    if(!sonActive)return;const c=getAudioCtx();if(!c)return;
+    if(c.state==='suspended')c.resume().catch(()=>{});
+    const t=c.currentTime,o=c.createOscillator(),g=c.createGain();
+    o.type='sawtooth';
+    o.frequency.setValueAtTime(160,t);
+    o.frequency.exponentialRampToValueAtTime(46,t+1.0);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.5,t+0.12);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+1.1);
+    o.connect(g);g.connect(getSndOut(c));o.start(t);o.stop(t+1.15);
+  }
+  function playReplayBoom(){
+    if(!sonActive)return;const c=getAudioCtx();if(!c)return;
+    const t=c.currentTime,o=c.createOscillator(),g=c.createGain();
+    o.type='sine';
+    o.frequency.setValueAtTime(150,t);
+    o.frequency.exponentialRampToValueAtTime(38,t+0.5);
+    g.gain.setValueAtTime(0.9,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.6);
+    o.connect(g);g.connect(getSndOut(c));o.start(t);o.stop(t+0.65);
+  }
+  // Habillage « too much » + avancement de la lecture (appelé en fin de draw)
+  function drawReplayFx(){
+    const rp=replayFx;if(!rp)return;
+    const now=performance.now();
+    // Letterbox doré
+    const bh=36;
+    ctx.fillStyle='rgba(0,0,0,0.88)';
+    ctx.fillRect(0,0,SW,bh);ctx.fillRect(0,SH-bh,SW,bh);
+    ctx.fillStyle='rgba(255,232,122,0.9)';
+    ctx.fillRect(0,bh-2,SW,2);ctx.fillRect(0,SH-bh,SW,2);
+    // Vignette chaude
+    const vg=ctx.createRadialGradient(SW/2,SH/2,SH*0.35,SW/2,SH/2,SH*0.78);
+    vg.addColorStop(0,'rgba(30,15,0,0)');vg.addColorStop(1,'rgba(30,15,0,0.38)');
+    ctx.fillStyle=vg;ctx.fillRect(0,0,SW,SH);
+    // Rayons lumineux tournants depuis l'impact
+    const p=project(rp.x,rp.y,0);
+    ctx.save();ctx.translate(p.sx,p.sy);ctx.rotate(now/900);
+    ctx.fillStyle='rgba(255,220,110,0.10)';
+    for(let i=0;i<6;i++){
+      ctx.rotate(Math.PI/3);
+      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(SW,-30);ctx.lineTo(SW,30);ctx.closePath();ctx.fill();
+    }
+    ctx.restore();
+    // Titre clignotant
+    const blink=Math.sin(now/120)>0;
+    outlineText('🎬 RALENTI 🎬',SW/2,24,blink?'#ffe87a':'#ffffff','bold 16px sans-serif','center');
+    // « TOUCHÉ !! » qui pope à l'impact
+    if(rp.boomT&&now-rp.boomT<700){
+      const k=1+0.6*Math.max(0,1-(now-rp.boomT)/250);
+      ctx.save();ctx.translate(SW/2,SH/2-40);ctx.scale(k,k);
+      outlineText('💥 TOUCHÉ !!',0,0,'#ff5a3a','bold 26px sans-serif','center');
+      ctx.restore();
+    }
+    // Flash blanc à l'impact
+    if(rp.boomT&&now-rp.boomT<160){
+      ctx.fillStyle='rgba(255,255,255,'+(0.75*(1-(now-rp.boomT)/160)).toFixed(2)+')';
+      ctx.fillRect(0,0,SW,SH);
+    }
+    outlineText('Espace / Tap : passer',SW/2,SH-14,'rgba(255,255,255,0.78)','10px sans-serif','center');
+    // Lecture à mi-vitesse : une frame de replay sur deux frames rendues
+    rp.half=!rp.half;
+    if(rp.half){
+      rp.i++;
+      if(!rp.boomT&&rp.i>=rp.impact){
+        rp.boomT=now;
+        playImpactSound(5,'ball');playReplayBoom();
+        if(navigator.vibrate){try{navigator.vibrate([30,40,60]);}catch(e){}}
+      }
+      if(rp.i>=rp.frames.length)replayFx=null;
+    }
+  }
+
   // ═══ Stats de match (affichées via « Stats du match » en fin de partie) ═══
   let matchStats=null;      // compteurs par équipe
   let statLauncher=0;       // joueur dont la boule est en mouvement (attribution)
   let statBall=null;        // boule fraîchement lancée (pointage moyen)
+  // Les stats sont consultables en fin de match standard ET de match de campagne
+  function statsViewable(){
+    return ['match','camp-win','camp-lose','camp-done'].includes(state)
+      &&gameMode!=='challenge'&&!!matchStats;
+  }
   function resetMatchStats(){
     matchStats={t0:Date.now(),menes:0,
       won:{1:0,2:0},          // mènes gagnées
@@ -799,39 +991,93 @@ margin-top:12px;
     for(const z of terrainZones){const dx=x-z.x,dy=y-z.y;if(dx*dx+dy*dy<z.r*z.r)return true;}
     return false;
   }
-  // Génère 2 à 5 flaques de sable espacées (jamais en mode challenge)
-  function genTerrainZones(){
+  // Génère les flaques de sable espacées (jamais en mode challenge).
+  // forceN : nombre imposé (règle d'équipe) · xl : flaques géantes (r 0,9-1,4 m)
+  function genTerrainZones(forceN,xl){
     terrainZones=[];
     if(gameMode==='challenge')return;
     const rr=Math.random();
-    const n=rr<0.30?2:(rr<0.65?3:(rr<0.88?4:5));
+    let n=(forceN!==null&&forceN!==undefined)?forceN
+      :(rr<0.30?2:(rr<0.65?3:(rr<0.88?4:5)));
+    if(xl&&(forceN===null||forceN===undefined))n=1+(Math.random()<0.5?1:0); // XL seul : 1-2 suffisent
     for(let i=0;i<n;i++){
       // Jusqu'à 12 essais pour éviter que deux flaques se chevauchent
       for(let tries=0;tries<12;tries++){
+        const r=xl?(0.90+Math.random()*0.50)*SCALE   // GÉANTES : jusqu'à 1,4 m de rayon
+                 :(0.40+Math.random()*0.35)*SCALE;
         const z={
           x:(0.7*SCALE)+Math.random()*(WORLD_W-1.4*SCALE),
           y:(4.0*SCALE)+Math.random()*(9*SCALE),
-          r:(0.40+Math.random()*0.35)*SCALE
+          r
         };
-        if(terrainZones.every(o=>Math.hypot(o.x-z.x,o.y-z.y)>(o.r+z.r)*0.95)){
+        // Les géantes ont le droit de se toucher un peu (sinon placement impossible)
+        if(terrainZones.every(o=>Math.hypot(o.x-z.x,o.y-z.y)>(o.r+z.r)*(xl?0.55:0.95))){
           terrainZones.push(z);break;
         }
       }
     }
   }
+  // ═══ Règles d'environnement par équipe de campagne ═══
+  // Vocabulaire (combinables avec « + ») :
+  //   sec        → terrain calme : ni sable, ni vent, ni pluie
+  //   pluie      → pluie garantie (sol lourd)
+  //   vent1/vent2→ vent fort / très fort garanti
+  //   sableN     → exactement N flaques (0 à 6)
+  //   sablexl    → flaques GÉANTES (rayon 0,9 à 1,4 m — la moitié du terrain !)
+  // Éditable ici (clé = colonne « ordre » du CSV), ou via une colonne « regle »
+  // ajoutée au CSV qui a priorité sur cette table.
+  const CAMP_REGLES={
+    7:'sec',                    // Les pétanqueuses du dimanche : tranquille
+    9:'vent2',                  // The Falcons : ça plane fort
+    10:'pluie',                 // Les démons de minuit : orage nocturne
+    14:'sable4',                // Opération cochonnet : terrain piégé
+    16:'vent2',                 // Les Catapultes de l'Espace : turbulences
+    17:'sablexl',               // La BAZ : la grande fosse
+    21:'vent1',                 // Les Flash-(D)Mob : courant d'air
+    22:'sablexl+sable3',        // Papou team : plages géantes
+    24:'sable5',                // Le clan des Majolanes : gravière criblée
+    25:'sablexl+sable2',        // Les OAsillons : l'oasis, évidemment
+    27:'pluie+vent1',           // Les pas laids bretons : crachin breton
+    28:'sec',                   // Les boules à paillettes : terrain de gala
+    29:'vent1+sable3',          // Las Cuotas : sierra ventée
+    30:'pluie',                 // Les Dodo's : averse tropicale
+    32:'vent2',                 // Bande d'Arrêt d'Urgence : appel d'air
+    33:'vent2+sable4',          // Les Frelons : l'enfer avant le boss
+    34:'pluie+vent2+sable5'     // USLPLP : l'apocalypse finale
+  };
+  let campEnvRule=null; // règle active (posée par campStartMatch, sinon null)
+  function parseEnvRule(rule){
+    const o={zones:null,xl:false,wind:null,rain:null,calm:false};
+    if(!rule)return o;
+    for(const tk of String(rule).toLowerCase().split('+').map(t=>t.trim())){
+      if(tk==='sec'||tk==='calme'){o.calm=true;}
+      else if(tk==='pluie'){o.rain=true;}
+      else if(tk==='vent1'){o.wind=1;}
+      else if(tk==='vent2'){o.wind=2;}
+      else if(tk==='sablexl'){o.xl=true;}
+      else if(/^sable[0-6]$/.test(tk)){o.zones=parseInt(tk.slice(5));}
+    }
+    return o;
+  }
   // Environnement DE MATCH : terrain (flaques) + vent + pluie. Généré UNE fois
   // au début du match et persistant sur toutes les mènes, comme un vrai terrain.
+  // En campagne, la règle de l'équipe adverse (campEnvRule) impose son terrain.
   function genMatchEnv(){
-    genTerrainZones();
-    if(gameMode==='challenge'){matchWind={ax:0,ay:0,level:0,ang:0};matchRain=false;return;}
+    const rule=parseEnvRule(gameMode==='campaign'?campEnvRule:null);
+    if(rule.calm){
+      terrainZones=[];matchWind={ax:0,ay:0,level:0,ang:0};matchRain=false;
+      terrainDirty=true;return;
+    }
+    genTerrainZones(rule.zones,rule.xl);
+    if(gameMode==='challenge'){matchWind={ax:0,ay:0,level:0,ang:0};matchRain=false;terrainDirty=true;return;}
     // Vent : 50% faible / 30% fort / 20% très fort, direction surtout latérale
     const wr=Math.random();
-    const level=wr<0.50?0:(wr<0.80?1:2);
+    const level=(rule.wind!==null)?rule.wind:(wr<0.50?0:(wr<0.80?1:2));
     const ang=(Math.random()<0.5?0:Math.PI)+(Math.random()-0.5)*0.9;
     const A=WIND_ACCEL[level];
     matchWind={ax:Math.cos(ang)*A,ay:Math.sin(ang)*A*0.6,level,ang};
     // Pluie : 25% des matchs — le sol mouillé freine davantage les boules
-    matchRain=Math.random()<0.25;
+    matchRain=(rule.rain!==null)?rule.rain:(Math.random()<0.25);
     terrainDirty=true; // nouvelles flaques → recuire le calque terrain
   }
   function spawnDust(x,y,n,pw){
@@ -961,6 +1207,12 @@ margin-top:12px;
     // Stats : frappe marquée sur une boule adverse (choc franc)
     if(matchStats&&gameMode!=='challenge'&&statLauncher&&dot>1.2&&!isJackCollision&&a.player!==b.player){
       matchStats.hits[statLauncher]++;
+    }
+    // Replay cinématique : marque le choc (carreau / balle de match) pour
+    // rediffusion au ralenti quand tout sera arrêté
+    if(!isJackCollision&&dot>1.6){
+      const striker=(Math.hypot(a.vx,a.vy)>=Math.hypot(b.vx,b.vy))?a:b;
+      maybeMarkReplay(striker,dot,(a.x+b.x)/2,(a.y+b.y)/2);
     }
     // Petit nuage de poussière sur les chocs marqués (carreaux !)
     if(dot>1.2)spawnDust((a.x+b.x)/2,(a.y+b.y)/2,Math.min(8,Math.round(dot*1.6)),0.6);
@@ -1414,9 +1666,14 @@ margin-top:12px;
   }
 
   function aiTurn(){
+    // GEL : tant qu'un dialogue, l'annonce de match, l'écran de règles ou le
+    // tirage au sort est affiché, l'IA attend (elle jouait pendant les
+    // dialogues de campagne quand l'adversaire commençait la partie).
+    if(overlayBlocking()||inputFrozen()){setTimeout(aiTurn,350);return;}
     setMsg(' La Machine réfléchit…');
     setTimeout(()=>{
       if(state!=='aim'||cur!==2)return;
+      if(overlayBlocking()||inputFrozen()){setTimeout(aiTurn,350);return;}
 
       // Premier tir de la manche : terrain vide, on pointe direct vers le cochonnet
       const allBalls=balls.filter(b=>b.active&&b.phase==='rolling');
@@ -1457,13 +1714,27 @@ margin-top:12px;
 
   function executeLaunch(vx,vy,vz,hNorm){
     if(state!=='aim'&&state!=='charge')return;
-    balls.push({x:ORIGIN.x,y:ORIGIN.y,z:0,vx,vy,vz,mass:1,player:cur,active:true,phase:'flying',bounces:0,hNorm});
+    if(inputFrozen())return; // tirage au sort en cours : personne ne lance
+    // Doublette : la boule appartient au siège dont c'est le tour
+    let launchSeat=0;
+    if(gameMode==='pvr'&&netIs2v2){
+      launchSeat=currentSeat();
+      if(!boulesSeat||boulesSeat[launchSeat]<=0)return;
+    }
+    balls.push({x:ORIGIN.x,y:ORIGIN.y,z:0,vx,vy,vz,mass:1,player:cur,active:true,phase:'flying',bounces:0,hNorm,seat:launchSeat||undefined});
     statLauncher=cur;statBall=balls[balls.length-1]; // stats : qui joue, quelle boule
+    replayBuf=[];replayMark=null; // nouveau lancer → nouvel enregistrement
+    if(launchSeat){
+      boulesSeat[launchSeat]--;
+      lastSeatOfTeam[cur]=launchSeat; // alternance au sein de l'équipe
+    }
     boules[cur]--;
     state='flying';updateMsg();
-    // Réseau : envoyer l'état au moment du lancer pour que l'adversaire voie la trajectoire
-    if(gameMode==='pvr'&&netConn&&netReady){
-      netConn.send(netSerialize());
+    // Réseau : envoyer l'état au moment du lancer pour que les autres voient
+    // la trajectoire. netLaunchLocal → c'est NOUS qui enverrons l'état final.
+    if(gameMode==='pvr'&&netReady){
+      netLaunchLocal=true;
+      netSend(netSerialize());
     }
   }
 
@@ -1536,6 +1807,9 @@ margin-top:12px;
       }
       statBall=null;
     }
+    // Replay cinématique : tout attend la fin de la diffusion (ou le skip)
+    if(replayFx)return;
+    if(replayMark&&!isRoundLocked()){startReplay();if(replayFx)return;}
     if(isRoundLocked())return;
     const leader=whosLeading(),opp=leader===0?1:(leader===1?2:1);
     // Cas où toutes les boules sont hors terrain (actives=false) mais comptées 0
@@ -1609,7 +1883,15 @@ margin-top:12px;
     if(player&&pts>0){
       scoreTotal[player]+=pts;updateScore();
       lastWinner=player;
-      if(scoreTotal[player]>=13){state='match';setMsg('🏆 '+teamLabel(player)+' GAGNE LE MATCH ! ('+scoreTotal[1]+'–'+scoreTotal[2]+')');onMatchEnded(player);return;}
+      if(scoreTotal[player]>=13){
+        state='match';
+        // Hors campagne : on coupe le stress et on rétablit la musique de base
+        // (la campagne, elle, enchaîne sur ses jingles victoire/défaite —
+        // campMusicStressStop ne rétablit volontairement PAS la base).
+        if(gameMode!=='campaign'){campMusicStressStop();bgmDuck(false);}
+        setMsg('🏆 '+teamLabel(player)+' GAGNE LE MATCH ! ('+scoreTotal[1]+'–'+scoreTotal[2]+')');
+        onMatchEnded(player);return;
+      }
     }else{
       lastWinner=0;
     }
@@ -1624,8 +1906,11 @@ margin-top:12px;
   function updateScore(){
     if(gameMode==='challenge'){document.getElementById('sc').textContent='Série '+chStreak;return;}
     document.getElementById('sc').textContent=scoreTotal[1]+' – '+scoreTotal[2];
-    // Campagne : ambiance stressante dès qu'un joueur atteint 10 points (match en cours)
-    if(gameMode==='campaign'&&!isRoundLocked()&&(scoreTotal[1]>=10||scoreTotal[2]>=10)){
+    // Ambiance stressante dès qu'un joueur atteint 10 points, dans TOUS les
+    // modes de match (campagne, partie rapide, PvP local, réseau) — elle
+    // remplace la musique de base. (Historiquement limitée à la campagne :
+    // c'est pourquoi elle ne se déclenchait pas en partie rapide.)
+    if(gameMode!=='challenge'&&!isRoundLocked()&&(scoreTotal[1]>=10||scoreTotal[2]>=10)){
       campMusicStress();
     }
   }
@@ -1637,6 +1922,17 @@ margin-top:12px;
     const leader=whosLeading();
     if(isAiMode()&&cur===2){setMsg('La Machine réfléchit…');return;}
     if(gameMode==='pvr'){
+      if(netIs2v2){
+        const st=currentSeat();
+        if(st!==mySeat){
+          const who=seatPseudos[st]||('Joueur '+st);
+          setMsg('⏳ '+who+' ('+teamLabel(cur)+') joue…');return;
+        }
+        setMsg('🎯 À toi de jouer ! ('+teamLabel(cur)+') · Espace=lancer');
+        document.getElementById('p1hud').style.outline=cur===1?'2px solid #3a6fc4':'';
+        document.getElementById('p2hud').style.outline=cur===2?'2px solid #c43a3a':'';
+        return;
+      }
       const myP=netRole==='host'?1:2;
       if(cur!==myP){setMsg('⏳ '+teamLabel(cur)+' joue…');return;}
     }
@@ -1666,23 +1962,38 @@ margin-top:12px;
       matchRecorded=false; // nouvelle partie → on pourra ré-enregistrer
       genMatchEnv();       // nouveau match → nouveau terrain + nouvelle météo
       resetMatchStats();
+      campMusicStressStop();bgmDuck(false); // score à 0 → fin du stress, base rétablie
+      matchTossPending=true; // nouveau match → nouveau tirage au sort
     }
     if(raf)cancelAnimationFrame(raf);
     state='aim';mouse={x:SW/2,y:SH*0.55};charge=0;chargeDir=1;balls=[];boules={1:6,2:6};if(campReducedBoules)boules[1]=4;heightLevel=0.15;
+    // Doublette : 3 boules par siège (les totaux d'équipe restent la référence
+    // de fin de mène ; boulesSeat détermine QUI joue au sein de l'équipe)
+    if(gameMode==='pvr'&&netIs2v2){
+      boulesSeat={1:3,2:3,3:3,4:3};
+      lastSeatOfTeam={1:3,2:4}; // pour que les sièges 1 et 2 commencent
+    }
     aiTirsManche=0;
-    cur=lastWinner||1;
+    if(matchTossPending){
+      // Début de match : tirage au sort (l'invité réseau reçoit celui de l'hôte)
+      cur=tossForcedWinner||(Math.random()<0.5?1:2);
+    }else{
+      cur=lastWinner||1;
+    }
     const jackX=(1*SCALE)+Math.random()*(WORLD_W-2*SCALE);
     const jackY=(7.5*SCALE)+Math.random()*((12-7.5)*SCALE);
     jack={x:jackX,y:jackY,z:0,vx:0,vy:0,vz:0,mass:1.96,isJack:true,phase:'rolling',active:true};
     traces=[];dust=[];clearTraceLayer(); // terrain « ratissé » à chaque mène
     measureFx=null;           // annule toute mesure en attente
+    replayFx=null;replayMark=null;replayBuf=[]; // replay annulé/purgé
     // (flaques/vent/pluie : PERSISTANTS sur le match — générés dans genMatchEnv)
     updateScore();updateMsg();loop();
     onTurnStart();
     // En mode réseau : l'hôte envoie l'état initial de manche au guest
-    if(gameMode==='pvr'&&netRole==='host'&&netConn&&netReady){
+    if(gameMode==='pvr'&&netRole==='host'&&netReady){
       setTimeout(()=>{
-        netConn.send(JSON.stringify({type:'newmanche',balls,jack,boules,scoreTotal,state,cur,lastWinner,teamNames,terrainZones,matchWind,matchRain}));
+        netSend(JSON.stringify({type:'newmanche',balls,jack,boules,scoreTotal,state,cur,lastWinner,teamNames,terrainZones,matchWind,matchRain,toss:(matchTossPending?cur:0),
+          is2v2:netIs2v2,boulesSeat,lastSeatOfTeam,seatPseudos}));
       },100);
     }
   };
@@ -1855,6 +2166,23 @@ margin-top:12px;
 
   //  MODE CAMPAGNE SOLO (premier jet : sauvegarde locale)
   // ═══════════════════════════════════════════════════════
+  // ═══ Versionnage des sauvegardes locales ═══
+  // Incrémenter SAVE_VERSION et ajouter un bloc « if(v<N) » à chaque évolution
+  // de structure : les données existantes pourront être migrées proprement.
+  const SAVE_VERSION=1;
+  function migrateSaves(){
+    try{
+      const v=parseInt(localStorage.getItem('petanque_save_version'))||0;
+      if(v<1){
+        // v0 → v1 : première version taguée. Les clés actuelles
+        // (petanque_campagne_*, petanque_pseudo, records challenge, reset_floor)
+        // sont déjà au bon format : rien à migrer.
+      }
+      // if(v<2){ ... migration future ... }
+      localStorage.setItem('petanque_save_version',String(SAVE_VERSION));
+    }catch(e){}
+  }
+  migrateSaves();
   const CAMP_KEY='petanque_campagne_normal';   // index équipe atteint (mode normal)
   const CAMP_HC_KEY='petanque_campagne_hardcore_best'; // meilleur palier hardcore
   const CAMP_HC_PROG_KEY='petanque_campagne_hardcore_progress'; // série hardcore EN COURS (reprise)
@@ -1867,6 +2195,23 @@ margin-top:12px;
   const CAMP_TR_KEY='petanque_campagne_transpi_progress'; // index equipe atteint (mode transpi)
   function campGetTranspiProg(){try{return parseInt(localStorage.getItem(CAMP_TR_KEY))||0;}catch(e){return 0;}}
   function campSetTranspiProg(n){try{localStorage.setItem(CAMP_TR_KEY,String(n));}catch(e){}}
+  // « Pierres tombales » de réinitialisation, PERSISTÉES en localStorage : après
+  // un reset, la réconciliation cloud ignore définitivement toute progression
+  // cloud ≤ tombstone (le cloud est append-only/max et ne peut pas être remis à
+  // zéro — c'était la cause des resets « qui revenaient » à la session suivante).
+  // Une progression cloud STRICTEMENT supérieure (vrai record établi ensuite,
+  // ou autre appareil allé plus loin) sera à nouveau adoptée : comportement voulu.
+  const CAMP_RESET_KEY='petanque_campagne_reset_floor';
+  function campGetResetFloor(){
+    try{return JSON.parse(localStorage.getItem(CAMP_RESET_KEY))||{};}catch(e){return{};}
+  }
+  function campRaiseResetFloor(mode,val){
+    try{
+      const f=campGetResetFloor();
+      f[mode]=Math.max(f[mode]||0,val|0);
+      localStorage.setItem(CAMP_RESET_KEY,JSON.stringify(f));
+    }catch(e){}
+  }
 
   // Ordre des équipes affrontées. Provisoire : ordre du CSV (à calibrer plus tard
   // par difficulté croissante quand on retravaillera les stats d'équipes).
@@ -1908,9 +2253,12 @@ margin-top:12px;
         if(r.mode==='normal'&&t>cloudNormal)cloudNormal=t;
         if(r.mode==='transpi'&&t>cloudTranspi)cloudTranspi=t;
       });
+      const floor=campGetResetFloor();
       let changed=false;
-      if(cloudNormal>campGetProgress()){campSetProgress(cloudNormal);changed=true;}
-      if(cloudTranspi>campGetTranspiProg()){campSetTranspiProg(cloudTranspi);changed=true;}
+      // On n'adopte le cloud que s'il dépasse la progression locale ET la
+      // pierre tombale du dernier reset (sinon l'ancienne valeur reviendrait).
+      if(cloudNormal>campGetProgress()&&cloudNormal>(floor.normal||0)){campSetProgress(cloudNormal);changed=true;}
+      if(cloudTranspi>campGetTranspiProg()&&cloudTranspi>(floor.transpi||0)){campSetTranspiProg(cloudTranspi);changed=true;}
       if(changed)renderCampMenuInfo();
     }).catch(()=>{});
   };
@@ -1937,36 +2285,48 @@ margin-top:12px;
     document.getElementById('btn-camp-hardcore').innerHTML=(hcProg>0&&hcProg<total)
       ? '💀 Reprendre (Hardcore)<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">équipe '+(hcProg+1)+' / '+total+'</span>'
       : '💀 Mode Hardcore<br><span style="font-size:8px;font-family:\'Press Start 2P\',monospace;">IA tactique · une défaite = retour au début</span>';
-    document.getElementById('btn-camp-reset').style.display=(prog>0)?'inline-block':'none';
+    const anyProg=(prog>0||trProg>0||hcProg>0);
+    document.getElementById('btn-camp-reset').style.display=anyProg?'inline-block':'none';
+    if(!anyProg){const row=document.getElementById('camp-reset-row');if(row)row.style.display='none';}
   }
 
-  window.resetCampagneNormal=function(){
-    // Repart du début : on remet la progression locale à 0 et on rafraîchit
-    // l'affichage SANS re-réconcilier avec le cloud (sinon l'ancienne valeur
-    // cloud serait immédiatement réadoptée). Le record du classement (un max)
-    // reste volontairement intact.
-    campSetProgress(0);
-    campResetSession=true; // ne pas réadopter le cloud tant qu'on n'a pas rejoué
+  window.toggleCampResetRow=function(){
+    const row=document.getElementById('camp-reset-row');
+    if(row)row.style.display=(row.style.display==='none'||!row.style.display)?'flex':'none';
+  };
+  // Réinitialise DÉFINITIVEMENT une progression (ou toutes) :
+  // 1) remise à zéro locale ; 2) pierre tombale persistée = progression connue,
+  // relevée ensuite (best-effort) à la valeur cloud réelle — la réconciliation
+  // ne pourra plus jamais réadopter l'ancienne valeur, même après redémarrage.
+  // Les RECORDS des classements cloud (max historiques) restent intacts.
+  window.resetCampagne=function(mode){
+    const NAMES={normal:'Normal',transpi:'Transpi',hardcore:'Hardcore (série en cours)',tout:'TOUTES les progressions'};
+    if(!confirm('Remettre à zéro : '+(NAMES[mode]||mode)+' ?\n(Les records des classements sont conservés)'))return;
+    const doNormal=(mode==='normal'||mode==='tout');
+    const doTranspi=(mode==='transpi'||mode==='tout');
+    const doHardcore=(mode==='hardcore'||mode==='tout');
+    if(doNormal){campRaiseResetFloor('normal',campGetProgress());campSetProgress(0);}
+    if(doTranspi){campRaiseResetFloor('transpi',campGetTranspiProg());campSetTranspiProg(0);}
+    if(doHardcore){campSetHardcoreProgress(0);} // série locale uniquement (pas de réconciliation cloud)
+    campResetSession=true; // coupe aussi toute réconciliation déjà en vol
+    // Relève la tombale à la valeur cloud réelle (autre appareil éventuel)
+    if(doNormal||doTranspi){
+      const pseudo=getPseudo();
+      supabaseFetchCampaign().then(rows=>{
+        rows.forEach(r=>{
+          if(r.pseudo!==pseudo)return;
+          const t=parseInt(r.teams_beaten)||0;
+          if(doNormal&&r.mode==='normal')campRaiseResetFloor('normal',t);
+          if(doTranspi&&r.mode==='transpi')campRaiseResetFloor('transpi',t);
+        });
+      }).catch(()=>{});
+    }
+    const row=document.getElementById('camp-reset-row');
+    if(row)row.style.display='none';
     renderCampMenuInfo();
   };
-
-  // TEMP (debug) : saut direct au niveau des Frelons (avant-dernier) pour tester
-  // les événements de fin de campagne. À retirer en version finale.
-  function campDebugFrelons(){
-    if(!campTeams.length)return;
-    campHardcore=(campMode==='hardcore');
-    campEngine=(campMode==='normal')?'classic':'smart';
-    campOrder=campBuildOrder();
-    campIndex=Math.max(0,campOrder.length-2); // avant-dernier = Frelons
-    campResult=null; campResetSession=false; gameMode='campaign';
-    ['menu-niveau1','menu-solo','menu-campagne','screen-splash','screen-select','screen-rules']
-      .forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-    const rh=document.getElementById('rules-hint'); if(rh)rh.style.display='flex';
-    document.body.classList.add('in-game');
-    campJalonShown=false;campPrebossShown=false;campJalonDone={};
-    campShowVersus();
-    adjustCanvas();scheduleCanvasFit();
-  }
+  // Rétro-compatibilité (anciens appels éventuels)
+  window.resetCampagneNormal=function(){window.resetCampagne('normal');};
 
   window.startCampagne=function(mode){
     if(!campTeams.length)return;
@@ -2087,6 +2447,13 @@ margin-top:12px;
     scoreTotal={1:0,2:0};
     matchRecorded=false;
     campResult=null;
+    // Terrain/météo du match : la règle de l'équipe (CSV « regle » prioritaire,
+    // sinon table CAMP_REGLES) impose son environnement. La campagne ne passait
+    // pas par startGame : l'environnement n'était jamais (re)généré ici.
+    campEnvRule=(eq&&eq.regle)||CAMP_REGLES[eq?eq.ordre:0]||null;
+    genMatchEnv();
+    resetMatchStats();
+    matchTossPending=true; // tirage au sort (après le dialogue d'intro)
     newManche();
     updateCampagneMsg();
     // Dialogue de début de combat propre à l'équipe (colonne Line_Start du CSV).
@@ -2299,6 +2666,8 @@ margin-top:12px;
   window.challengeNewManche=function(){
     if(raf)cancelAnimationFrame(raf);
     traces=[];dust=[];terrainZones=[];measureFx=null; // pas de sable en challenge (précision pure)
+    replayFx=null;replayMark=null;replayBuf=[];
+    matchTossPending=false;tossFx=null;tossForcedWinner=0;
     terrainDirty=true;clearTraceLayer();
     matchWind={ax:0,ay:0,level:0,ang:0};matchRain=false; // ni vent ni pluie en challenge
     state='aim';mouse={x:SW/2,y:SH*0.55};charge=0;chargeDir=1;
@@ -2599,6 +2968,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
       t.tir=parseFloat(t.tir)||0.3;
       t.pointage=parseFloat(t.pointage)||0.3;
       t.ordre=parseInt(t.ordre)||0;
+      t.regle=(t.regle||'').trim(); // règle d'environnement optionnelle (prioritaire sur CAMP_REGLES)
     });
     teams.sort((a,b)=>a.ordre-b.ordre);
     return teams;
@@ -3269,8 +3639,10 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     document.getElementById('rules-hint').style.display='flex';
     document.getElementById('screen-rules').style.display='flex';
     scoreTotal={1:0,2:0};
+    campEnvRule=null; // hors campagne : environnement aléatoire standard
     genMatchEnv(); // terrain + météo du match (persistants sur toutes les mènes)
     resetMatchStats();
+    matchTossPending=true; // tirage au sort avant la première boule
     newManche();
   };
 
@@ -3327,6 +3699,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     document.body.classList.add('in-game');
     adjustCanvas();scheduleCanvasFit();
     if(!raf)loop();
+    updateScore(); // réévalue l'ambiance (le stress reprend si un score ≥ 10)
   };
 
   // ── Musique ─────────────────────────────────────────────
@@ -3516,7 +3889,10 @@ Corentin: On se retrouvera au prochain tournoi !"`;
 
   function isMyTurn(){
     if(isAiMode()&&cur===2)return false;
-    if(gameMode==='pvr'){const myP=netRole==='host'?1:2;return cur===myP;}
+    if(gameMode==='pvr'){
+      if(netIs2v2)return currentSeat()===mySeat;
+      const myP=netRole==='host'?1:2;return cur===myP;
+    }
     return true;
   }
 
@@ -3547,6 +3923,14 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     if(dialogueActive){
       if(e.code==='Space'||e.key==='Enter'){e.preventDefault();advanceDialogue();}
       return;
+    }
+    // Replay en cours : Espace/Entrée = passer
+    if(replayFx&&(e.code==='Space'||e.key==='Enter')){e.preventDefault();replayFx=null;return;}
+    // Tirage au sort : aucune commande de jeu ne passe
+    if(inputFrozen()&&(e.code==='Space'||e.key==='Enter')){e.preventDefault();return;}
+    // Touche S : stats de fin de match (la souris est masquée en jeu)
+    if(e.code==='KeyS'&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))){
+      if(statsViewable()){e.preventDefault();toggleStats();return;}
     }
     // Touche A : toggle overlay règles (en jeu seulement)
     if(e.key==='a'||e.key==='A'){toggleRules();return;}
@@ -3598,6 +3982,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   // Clic souris (PC) : ouvre les stats depuis le bouton du bandeau
   canvas.addEventListener('click',e=>{
     if(dialogueActive)return;
+    if(replayFx){replayFx=null;return;} // clic = passer le replay
     const r=canvas.getBoundingClientRect();
     const cx=(e.clientX-r.left)*(SW/r.width),cy=(e.clientY-r.top)*(SH/r.height);
     if(hitStatsBtn(cx,cy))toggleStats();
@@ -3605,10 +3990,15 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   canvas.addEventListener('touchstart',e=>{
     e.preventDefault();
     if(dialogueActive)return; // l'overlay de dialogue gère le tap
+    if(replayFx){replayFx=null;return;} // tap = passer le replay
+    if(inputFrozen())return; // tirage au sort : on regarde, on ne joue pas
     const t=e.changedTouches[0];
     setAimFromPoint(t.clientX,t.clientY);
     if(state==='ch-win'||state==='ch-lose'){challengeNewManche();return;}
-    if(state==='camp-win'||state==='camp-lose'||state==='camp-done'){campContinue();return;}
+    if(state==='camp-win'||state==='camp-lose'||state==='camp-done'){
+      if(hitStatsBtn(mouse.x,mouse.y)){toggleStats();return;}
+      campContinue();return;
+    }
     if(['done','cancelled','match'].includes(state)){
       // Tap sur le bouton « Stats » du bandeau (accessible aussi à l'invité réseau)
       if(hitStatsBtn(mouse.x,mouse.y)){toggleStats();return;}
@@ -4043,6 +4433,21 @@ Corentin: On se retrouvera au prochain tournoi !"`;
 
   function draw(){
     ctx.fillStyle='#1a1a1a';ctx.fillRect(0,0,SW,SH);
+    // ═══ REPLAY : la scène est rejouée depuis les instantanés enregistrés,
+    // avec un zoom progressif ×1,3 centré sur le point d'impact. Les vraies
+    // références balls/jack sont restaurées avant les couches d'interface. ═══
+    let _rpBalls=null,_rpJack=null;
+    if(replayFx){
+      const rp=replayFx;
+      const f=rp.frames[Math.min(rp.i,rp.frames.length-1)];
+      _rpBalls=balls;_rpJack=jack;
+      balls=f.balls.map(b=>({x:b.x,y:b.y,z:b.z,player:b.player,active:b.active,
+        vx:0,vy:0,phase:(b.z>0.5?'flying':'rolling'),mass:1,hNorm:0}));
+      if(f.jack)jack={x:f.jack.x,y:f.jack.y,z:f.jack.z,vx:0,vy:0,isJack:true,phase:'rolling',mass:1.96,active:true};
+      const pz=project(rp.x,rp.y,0);
+      const k=1+0.3*Math.min(1,rp.i/16);
+      ctx.save();ctx.translate(pz.sx,pz.sy);ctx.scale(k,k);ctx.translate(-pz.sx,-pz.sy);
+    }
     drawTerrain();
     drawTraces();
 
@@ -4143,8 +4548,10 @@ Corentin: On se retrouvera au prochain tournoi !"`;
       }
     }
     if(state==='camp-win'||state==='camp-lose'||state==='camp-done'){
-      const bandH=92;
-      ctx.fillStyle='rgba(0,0,0,0.78)';ctx.fillRect(0,SH/2-bandH/2,SW,bandH);
+      const bandH=118,y0=SH/2-bandH/2;
+      ctx.fillStyle='rgba(0,0,0,0.80)';ctx.fillRect(0,y0,SW,bandH);
+      ctx.fillStyle='rgba(255,232,122,0.85)';
+      ctx.fillRect(0,y0,SW,2);ctx.fillRect(0,y0+bandH-2,SW,2);
       ctx.textAlign='center';
       let line1,line2;
       const total=campOrder.length;
@@ -4164,9 +4571,18 @@ Corentin: On se retrouvera au prochain tournoi !"`;
         ctx.fillStyle='#e08080';
       }
       ctx.font='bold 18px sans-serif';
-      ctx.fillText(line1,SW/2,SH/2-10);
+      ctx.fillText(line1,SW/2,y0+30);
       ctx.font='13px sans-serif';ctx.fillStyle='rgba(255,255,255,0.80)';
-      ctx.fillText(line2,SW/2,SH/2+16);
+      ctx.fillText(line2,SW/2,y0+54);
+      // Bouton « Stats du match » intégré (clic / tap / touche S)
+      if(statsViewable()){
+        const bw=196,bh=26,bx=SW/2-bw/2,by=y0+70;
+        statsBtnRect={x:bx,y:by,w:bw,h:bh};
+        ctx.fillStyle='rgba(255,232,122,0.12)';rrect(bx,by,bw,bh,6);ctx.fill();
+        ctx.strokeStyle='#ffe87a';ctx.lineWidth=1.5;rrect(bx,by,bw,bh,6);ctx.stroke();
+        ctx.font='bold 12px sans-serif';ctx.fillStyle='#ffe87a';
+        ctx.fillText('📊 STATS DU MATCH  [S]',SW/2,by+17);
+      }
     }
     if(state==='ch-win'||state==='ch-lose'){
       const bandH=88;
@@ -4191,14 +4607,20 @@ Corentin: On se retrouvera au prochain tournoi !"`;
       ctx.font='13px sans-serif';ctx.fillStyle='rgba(255,255,255,0.78)';
       ctx.fillText(line2,SW/2,SH/2+16);
     }
-    if(gameMode!=='challenge'){
+    if(_rpBalls){ // fin de la scène rejouée : dé-zoom + vraies références
+      ctx.restore();
+      balls=_rpBalls;jack=_rpJack;
+    }
+    if(gameMode!=='challenge'&&!replayFx){
       const panelRect=drawLeadPanel(lead);
       drawClosestBallRefCam(closestBallsToJack(3),panelRect);
     }
     drawRain();
-    drawWeatherHUD();
+    if(!replayFx)drawWeatherHUD();
     drawMeasure();
     drawEmotes();
+    drawReplayFx(); // habillage + lecture du replay (au-dessus de tout)
+    drawTossFx();   // tirage au sort de début de match
     drawEndBanner(); // TOUT DERNIER : le bandeau de fin passe au premier plan
   }
 
@@ -4206,6 +4628,9 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   //    titre coloré, appel à l'action pulsant. Dessiné au-dessus de tout. ──
   let statsBtnRect=null; // zone cliquable « Stats du match » dans le bandeau
   function drawEndBanner(){
+    // Les états campagne posent leur propre rect plus tôt dans la frame :
+    // ne pas l'effacer ici (drawEndBanner est dessiné en dernier).
+    if(['camp-win','camp-lose','camp-done'].includes(state))return;
     statsBtnRect=null;
     if(!['done','cancelled','match'].includes(state))return;
     const{player,pts}=countPoints();
@@ -4246,13 +4671,13 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     ctx.font='13px sans-serif';ctx.fillStyle='rgba(255,255,255,0.85)';
     ctx.fillText(sub,SW/2,y0+(isMatch?64:58));
     // Bouton « Stats du match » intégré au bandeau (clic souris / tap)
-    if(isMatch&&matchStats&&gameMode!=='challenge'){
+    if(isMatch&&statsViewable()){
       const bw=196,bh=26,bx=SW/2-bw/2,by=y0+76;
       statsBtnRect={x:bx,y:by,w:bw,h:bh};
       ctx.fillStyle='rgba(255,232,122,0.12)';rrect(bx,by,bw,bh,6);ctx.fill();
       ctx.strokeStyle='#ffe87a';ctx.lineWidth=1.5;rrect(bx,by,bw,bh,6);ctx.stroke();
       ctx.font='bold 12px sans-serif';ctx.fillStyle='#ffe87a';
-      ctx.fillText('📊 STATS DU MATCH',SW/2,by+17);
+      ctx.fillText('📊 STATS DU MATCH  [S]',SW/2,by+17);
     }
     // Appel à l'action, pulsant
     const action=guestWaiting?'EN ATTENTE DE L\'HÔTE…'
@@ -4475,7 +4900,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
       // Stats : visibles seulement à la fin du match (tous modes sauf challenge)
       const bs=document.getElementById('btn-stats');
       if(bs){
-        const want=(state==='match'&&gameMode!=='challenge'&&matchStats)?'':'none';
+        const want=statsViewable()?'':'none';
         if(bs.style.display!==want)bs.style.display=want;
         // Le panneau se referme automatiquement si on quitte l'état de fin
         if(want==='none'){const sp=document.getElementById('stats-panel');
@@ -4503,6 +4928,49 @@ Corentin: On se retrouvera au prochain tournoi !"`;
 
   // Génère un code court lisible (6 chiffres)
   function netMakeId(){return Math.floor(100000+Math.random()*900000).toString();}
+
+  // ═══ Doublette (2v2) : topologie en ÉTOILE autour de l'hôte ═══
+  // L'hôte accepte jusqu'à 3 invités (sièges 2,3,4) et RELAIE leurs messages.
+  // Sièges impairs = équipe 1 (bleus : hôte + siège 3), pairs = équipe 2.
+  // Chaque siège dispose de 3 boules ; au sein d'une équipe, joue le siège
+  // ayant le plus de boules restantes (égalité → alternance stricte).
+  let netIs2v2=false;
+  let netHostMode='1v1';       // mode choisi à la création ('1v1'|'2v2')
+  let netConns=[];             // hôte 2v2 : [{conn,seat,_lastSeen}]
+  let mySeat=1;                // 1=hôte ; invités : reçu via 'welcome'
+  let boulesSeat=null;         // {1:3,2:3,3:3,4:3} en 2v2
+  let lastSeatOfTeam={1:0,2:0};
+  let seatPseudos={};          // {siège: pseudo}
+  let netLaunchLocal=false;    // vrai si la boule en mouvement a été lancée ICI
+  function teamOfSeat(st){return (st===1||st===3)?1:2;}
+  function seatsOfTeam(t){return t===1?[1,3]:[2,4];}
+  // Siège dont c'est le tour : PURE fonction de l'état synchronisé
+  // (boulesSeat + lastSeatOfTeam) → identique sur les 4 clients, rien à voter.
+  function pickSeat(team){
+    if(!boulesSeat)return team;
+    const seats=seatsOfTeam(team);
+    const alive=seats.filter(st=>boulesSeat[st]>0);
+    if(!alive.length)return seats[0];
+    if(alive.length===1)return alive[0];
+    if(boulesSeat[alive[0]]!==boulesSeat[alive[1]])
+      return boulesSeat[alive[0]]>boulesSeat[alive[1]]?alive[0]:alive[1];
+    // égalité : alternance (celui qui n'a pas joué le dernier)
+    return alive[0]===lastSeatOfTeam[team]?alive[1]:alive[0];
+  }
+  function currentSeat(){return netIs2v2?pickSeat(cur):cur;}
+  // Envoi unifié : invité → hôte ; hôte 2v2 → diffusion à tous les invités
+  function netSend(str){
+    if(netRole==='host'&&netIs2v2)netBroadcast(str,null);
+    else if(netConn&&netConn.open){try{netConn.send(str);}catch(e){}}
+  }
+  function netBroadcast(str,except){
+    for(const c of netConns){
+      if(c.conn!==except&&c.conn&&c.conn.open){try{c.conn.send(str);}catch(e){}}
+    }
+  }
+  function netLobbyMsg(){
+    return JSON.stringify({type:'lobby',seats:seatPseudos,count:1+netConns.length});
+  }
 
   // Crée un Peer robuste : serveurs STUN supplémentaires (meilleure traversée
   // NAT mobile) + reconnexion AUTOMATIQUE au serveur de signalisation.
@@ -4536,34 +5004,145 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     });
   };
 
-  window.netInitHost=function(){
+  window.netInitHost=function(mode){
     netCleanup();
     netRole='host';
+    netHostMode=(mode==='2v2')?'2v2':'1v1';
+    netIs2v2=(netHostMode==='2v2');
+    mySeat=1;seatPseudos={};netConns=[];
+    seatPseudos[1]=getPseudo()||'Hôte';
     const myId=netMakeId();
     document.getElementById('net-host-section').style.display='flex';
     document.getElementById('net-join-section').style.display='none';
     document.getElementById('net-myid').textContent='…';
     document.getElementById('net-status').textContent='Connexion aux serveurs…';
+    netRenderLobby();
 
     // Chargement dynamique de PeerJS si nécessaire
     netLoadPeer(()=>{
       netPeer=netNewPeer(myId);
       netPeer.on('open',id=>{
         document.getElementById('net-myid').textContent=id;
-        document.getElementById('net-status').textContent='En attente de connexion…';
+        document.getElementById('net-status').textContent=netIs2v2
+          ?'👥 Doublette : en attente des 3 invités…'
+          :'En attente de connexion…';
       });
       netPeer.on('connection',conn=>{
-        netConn=conn;
-        netSetupConn();
-        document.getElementById('net-status').textContent='✓ Adversaire connecté !';
-        setTimeout(()=>{
+        if(!netIs2v2){
+          // ── 1v1 : comportement historique inchangé ──
+          netConn=conn;
+          netSetupConn(conn);
+          document.getElementById('net-status').textContent='✓ Adversaire connecté !';
+          setTimeout(()=>{
+            netReady=true;
+            netStartHeartbeat();
+            netStartGame();
+          },600);
+          return;
+        }
+        // ── 2v2 : affecter un siège libre (2, 3 puis 4) ──
+        const taken=netConns.map(c=>c.seat);
+        const seat=[2,3,4].find(st=>!taken.includes(st));
+        if(!seat){ // partie pleine : on refuse poliment
+          const sendFull=()=>{
+            try{conn.send(JSON.stringify({type:'full'}));}catch(e){}
+            setTimeout(()=>{try{conn.close();}catch(e){}},300);
+          };
+          try{if(conn.open)sendFull();else conn.on('open',sendFull);}catch(e){}
+          return;
+        }
+        conn.seat=seat;conn._lastSeen=Date.now();
+        netConns.push({conn,seat,pseudo:null,get _lastSeen(){return conn._lastSeen;}});
+        netSetupConn(conn);
+        const sendWelcome=()=>{
+          try{conn.send(JSON.stringify({type:'welcome',seat,is2v2:true,seats:seatPseudos}));}catch(e){}
+          netBroadcast(netLobbyMsg(),null);
+          netRenderLobby();
+        };
+        if(conn.open)sendWelcome();else conn.on('open',sendWelcome);
+        document.getElementById('net-status').textContent='👥 '+(1+netConns.length)+'/4 joueurs connectés';
+        // Pas d'auto-start : l'hôte lance quand la table est complète
+        if(netConns.length>=3){
           netReady=true;
           netStartHeartbeat();
-          netStartGame();
-        },600);
+        }
+        netRenderLobby();
       });
       netPeer.on('error',e=>document.getElementById('net-status').textContent='Erreur: '+e.type);
     });
+  };
+  // Affiche la composition des équipes dans le panneau hôte (2v2)
+  function netRenderLobby(){
+    const lb=document.getElementById('net-lobby');
+    const btn=document.getElementById('btn-net-start2');
+    if(!lb||!btn)return;
+    if(!netIs2v2){lb.style.display='none';btn.style.display='none';return;}
+    lb.style.display='flex';
+    const nm=st=>{
+      const guest=netConns.find(c=>c.seat===st);
+      const ps=seatPseudos[st];
+      if(st===1)return '👑 '+(ps||'Hôte');
+      return guest?(ps||('Joueur '+st)):'…';
+    };
+    const swapBtn=st=>{
+      const guest=netConns.find(c=>c.seat===st);
+      if(!guest||netMatchStarted)return '';
+      return ' <button onclick="netSwapSeat('+st+')" title="Changer d\'équipe" style="font-size:8px;padding:2px 6px;background:#1a1a30;border:1px solid #666;color:#ccc;cursor:pointer;border-radius:3px;">⇄</button>';
+    };
+    lb.innerHTML=
+      '<div style="color:#7d9dd4;">🔵 Bleus : '+nm(1)+' + '+nm(3)+swapBtn(3)+'</div>'+
+      '<div style="color:#d1746a;">🔴 Rouges : '+nm(2)+swapBtn(2)+' + '+nm(4)+swapBtn(4)+'</div>'+
+      '<div style="color:#666;font-size:7px;">⇄ : changer un joueur d\'équipe</div>';
+    const full=netConns.length>=3;
+    btn.style.display='inline-block';
+    btn.disabled=!full;
+    btn.textContent=full?'▶ Lancer la partie (4/4)':'Lancer ('+(1+netConns.length)+'/4)';
+  }
+  let netMatchStarted=false; // verrouille la composition une fois la partie lancée
+  window.netStartGame2=function(){
+    if(!netIs2v2||netConns.length<3)return;
+    netMatchStarted=true;
+    netRenderLobby(); // retire les boutons ⇄ (composition verrouillée)
+    netReady=true;
+    netStartHeartbeat();
+    netStartGame();
+  };
+  // L'hôte change un invité d'équipe (avant le lancement uniquement).
+  // Sièges invités : 3 = bleu (avec l'hôte) · 2 et 4 = rouges.
+  window.netSwapSeat=function(seat){
+    if(!netIs2v2||netRole!=='host'||netMatchStarted)return;
+    const entry=netConns.find(c=>c.seat===seat);
+    if(!entry)return;
+    const isBlue=teamOfSeat(seat)===1;
+    const targets=isBlue?[2,4]:[3]; // sièges possibles dans l'équipe adverse
+    const taken=netConns.map(c=>c.seat);
+    let target=targets.find(st=>!taken.includes(st));
+    let other=null;
+    if(!target){ // pas de place libre → on ÉCHANGE avec un joueur d'en face
+      target=targets[0];
+      other=netConns.find(c=>c.seat===target);
+    }
+    // Le pseudo voyage avec la connexion : on le fige AVANT de bouger les sièges
+    for(const c of netConns){if(!c.pseudo)c.pseudo=seatPseudos[c.seat]||null;}
+    // Déplacement (et échange éventuel)
+    const oldSeat=entry.seat;
+    entry.seat=target;entry.conn.seat=target;
+    if(other){other.seat=oldSeat;other.conn.seat=oldSeat;}
+    // Table des pseudos reconstruite depuis les connexions (source de vérité)
+    seatPseudos={1:seatPseudos[1]};
+    for(const c of netConns)if(c.pseudo)seatPseudos[c.seat]=c.pseudo;
+    // Le nom de l'équipe rouge suit l'occupant du siège 2
+    const s2=netConns.find(c=>c.seat===2);
+    if(s2&&s2.conn.teamName){
+      teamNames[2]=s2.conn.teamName;
+      const el=document.getElementById('p2name');
+      if(el)el.textContent=teamNames[2];
+    }
+    // Prévenir les intéressés (nouveau siège) + tout le monde (lobby)
+    const notify=c=>{try{c.conn.send(JSON.stringify({type:'welcome',seat:c.seat,is2v2:true,seats:seatPseudos}));}catch(e){}};
+    notify(entry);if(other)notify(other);
+    netBroadcast(netLobbyMsg(),null);
+    netRenderLobby();
   };
 
   window.netInitJoin=function(){
@@ -4612,7 +5191,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     // Si la signalisation est tombée entre-temps, on la relance d'abord.
     if(netPeer.disconnected){try{netPeer.reconnect();}catch(e){}}
     netConn=netPeer.connect(remoteId,{reliable:true});
-    netSetupConn();
+    netSetupConn(netConn);
     // Garde-fou : si le canal ne s'ouvre pas (hôte gelé, réseau lent…), on retente.
     const connRef=netConn;
     netOpenTimeout=setTimeout(()=>{
@@ -4689,7 +5268,9 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     netWatchdogLastTick=Date.now();
     netGraceUntil=0;
     netHeartbeatTimer=setInterval(()=>{
-      if(netConn&&netConn.open){
+      if(netRole==='host'&&netIs2v2){
+        netBroadcast(JSON.stringify({type:'ping'}),null);
+      }else if(netConn&&netConn.open){
         try{netConn.send(JSON.stringify({type:'ping'}));}catch(e){}
       }
     },NET_PING_INTERVAL);
@@ -4706,6 +5287,13 @@ Corentin: On se retrouvera au prochain tournoi !"`;
         return;
       }
       if(now<netGraceUntil)return; // encore en période de grâce
+      if(netRole==='host'&&netIs2v2){
+        // Hôte 2v2 : chaque invité est surveillé individuellement
+        if(netReady&&netConns.some(c=>now-(c.conn._lastSeen||now)>NET_TIMEOUT)){
+          netHandleLost();
+        }
+        return;
+      }
       if(netReady&&now-netLastSeen>NET_TIMEOUT){
         netHandleLost();
       }
@@ -4730,14 +5318,18 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     if(!netReady)return;
     netReady=false; // évite les déclenchements multiples
     netStopHeartbeat();
-    setMsg('⚠ Connexion perdue avec l\'adversaire.');
+    // En 2v2, un départ met fin à la partie pour tout le monde : on prévient
+    if(netRole==='host'&&netIs2v2){
+      netBroadcast(JSON.stringify({type:'bye'}),null);
+    }
+    setMsg(netIs2v2?'⚠ Un joueur a quitté la partie.':'⚠ Connexion perdue avec l\'adversaire.');
     showDiscoOverlay();
   }
 
-  function netSetupConn(){
-    netConn.on('data',netOnData);
-    netConn.on('close',()=>{if(netReady)netHandleLost();});
-    netConn.on('error',()=>{if(netReady)netHandleLost();});
+  function netSetupConn(conn){
+    conn.on('data',raw=>netOnData(raw,conn));
+    conn.on('close',()=>{if(netReady)netHandleLost();});
+    conn.on('error',()=>{if(netReady)netHandleLost();});
   }
 
   function netCleanup(){
@@ -4745,16 +5337,22 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     // Stoppe les éventuelles tentatives de reconnexion de l'invité
     if(netJoinTimer){clearTimeout(netJoinTimer);netJoinTimer=null;}
     if(netOpenTimeout){clearTimeout(netOpenTimeout);netOpenTimeout=null;}
-    // Prévenir l'adversaire qu'on quitte proprement (s'il est encore là)
+    // Prévenir les autres qu'on quitte proprement (s'ils sont encore là)
     if(netConn&&netConn.open){try{netConn.send(JSON.stringify({type:'bye'}));}catch(e){}}
+    netBroadcast(JSON.stringify({type:'bye'}),null);
     if(netConn){try{netConn.close();}catch(e){}}
+    for(const c of netConns){try{c.conn.close();}catch(e){}}
     if(netPeer){try{netPeer.destroy();}catch(e){}}
     netPeer=null;netConn=null;netReady=false;
+    netConns=[];netIs2v2=false;mySeat=1;boulesSeat=null;
+    seatPseudos={};netLaunchLocal=false;lastSeatOfTeam={1:0,2:0};
+    netMatchStarted=false;
   }
 
   // Avertir l'adversaire en cas de fermeture/rechargement de l'onglet
   window.addEventListener('beforeunload',()=>{
     if(netConn&&netConn.open){try{netConn.send(JSON.stringify({type:'bye'}));}catch(e){}}
+    netBroadcast(JSON.stringify({type:'bye'}),null);
   });
 
   // ── Panneau de stats de match ──
@@ -4793,7 +5391,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   // ── Revanche rapide : rejouer sans repasser par l'échange de code ──
   window.netRematch=function(){
     if(gameMode!=='pvr'||state!=='match'||!netReady)return;
-    if(netConn&&netConn.open){try{netConn.send(JSON.stringify({type:'rematch'}));}catch(e){}}
+    netSend(JSON.stringify({type:'rematch'}));
     if(netRole==='host'){
       newManche(); // remet les scores à 0 (state==='match') et envoie la nouvelle mène
     }else{
@@ -4809,6 +5407,12 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     const now=Date.now();
     if(now-lastEmoteSent<1500)return; // anti-spam : 1 emote / 1,5 s
     lastEmoteSent=now;
+    if(netIs2v2){
+      const who=seatPseudos[mySeat]?seatPseudos[mySeat]+' · ':'';
+      emoteFx.push({p:teamOfSeat(mySeat),t:who+(EMOTES[i]||EMOTES[0]),ts:performance.now()});
+      netSend(JSON.stringify({type:'emote',i,seat:mySeat}));
+      return;
+    }
     const myP=netRole==='host'?1:2;
     emoteFx.push({p:myP,t:EMOTES[i]||EMOTES[0],ts:performance.now()});
     if(netConn&&netConn.open){try{netConn.send(JSON.stringify({type:'emote',i}));}catch(e){}}
@@ -4823,6 +5427,7 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   // L'hôte démarre la partie et envoie l'état initial
   function netStartGame(){
     resetMatchStats();
+    matchTossPending=true; // l'hôte tire au sort, l'invité recevra le résultat
     // L'hôte est le Joueur 1 : son équipe choisie. Le Joueur 2 sera nommé
     // dès réception du nom envoyé par le guest (message 'teamname').
     teamNames[1]=netMyTeamName();
@@ -4837,7 +5442,14 @@ Corentin: On se retrouvera au prochain tournoi !"`;
     document.body.classList.add('in-game');
     scoreTotal={1:0,2:0};
     matchRecorded=false; // nouvelle session de jeu réseau
-    if(netConn&&netConn.open){
+    if(netIs2v2){
+      seatPseudos[1]=getPseudo()||'Hôte';
+      netSend(JSON.stringify({type:'teamname',player:1,name:teamNames[1]}));
+      if(teamNames[2]&&teamNames[2]!=='En attente…'){
+        netSend(JSON.stringify({type:'teamname',player:2,name:teamNames[2]}));
+      }
+      netSend(netLobbyMsg());
+    }else if(netConn&&netConn.open){
       try{netConn.send(JSON.stringify({type:'teamname',player:1,name:teamNames[1],pseudo:netPseudos[1]}));}catch(e){}
     }
     newManche(); // hôte génère le jack, envoie l'état via netSyncAfterStop
@@ -4846,25 +5458,33 @@ Corentin: On se retrouvera au prochain tournoi !"`;
 
   // Sérialise l'état complet du jeu
   function netSerialize(){
-    return JSON.stringify({type:'state',balls,jack,boules,scoreTotal,state,cur,lastWinner,teamNames,terrainZones,matchWind,matchRain});
+    return JSON.stringify({type:'state',balls,jack,boules,scoreTotal,state,cur,lastWinner,teamNames,terrainZones,matchWind,matchRain,
+      is2v2:netIs2v2,boulesSeat,lastSeatOfTeam,seatPseudos});
   }
 
   // Applique un état reçu
   function netApplyState(s){
     balls=s.balls;jack=s.jack;boules=s.boules;scoreTotal=s.scoreTotal;
     state=s.state;cur=s.cur;lastWinner=s.lastWinner;
+    netLaunchLocal=false; // l'état reçu fait foi : ce lancer n'est pas le nôtre
+    if(s.is2v2!==undefined)netIs2v2=!!s.is2v2;
+    if(s.boulesSeat)boulesSeat=s.boulesSeat;
+    if(s.lastSeatOfTeam)lastSeatOfTeam=s.lastSeatOfTeam;
+    if(s.seatPseudos)seatPseudos=Object.assign(seatPseudos||{},s.seatPseudos);
     if(s.terrainZones&&JSON.stringify(s.terrainZones)!==JSON.stringify(terrainZones)){
       terrainZones=s.terrainZones;terrainDirty=true; // zones synchronisées → recuire
     }
     if(s.matchWind)matchWind=s.matchWind;           // météo synchronisée
     if(s.matchRain!==undefined)matchRain=s.matchRain;
+    if(s.toss){matchTossPending=true;tossForcedWinner=s.toss;} // tirage de l'hôte à rejouer
     if(!s.balls||s.balls.length===0){
       traces=[];dust=[];measureFx=null;clearTraceLayer(); // nouvelle mène → terrain ratissé, mesure annulée
+      replayFx=null;replayMark=null;replayBuf=[];
       // Début de match (0-0, terrain vide) → remise à zéro des stats côté invité
       if(scoreTotal&&scoreTotal[1]===0&&scoreTotal[2]===0)resetMatchStats();
     }
     // Attribution stats : une boule en vol dans l'état reçu = lancer adverse
-    {const fb=balls.find(b=>b.phase==='flying');if(fb){statLauncher=cur;statBall=fb;}}
+    {const fb=balls.find(b=>b.phase==='flying');if(fb){statLauncher=cur;statBall=fb;replayBuf=[];replayMark=null;}}
     // Synchronise les noms d'équipe si fournis (sans écraser par un placeholder)
     if(s.teamNames){
       [1,2].forEach(p=>{
@@ -4882,7 +5502,16 @@ Corentin: On se retrouvera au prochain tournoi !"`;
 
   // Appelé après chaque fin de physique (allStopped) pour sync
   function netSyncAfterStop(){
-    if(gameMode!=='pvr'||!netConn||!netReady)return;
+    if(gameMode!=='pvr'||!netReady)return;
+    if(netIs2v2){
+      // Doublette : celui qui a lancé la boule fait foi et diffuse l'état final
+      if(netLaunchLocal){
+        netLaunchLocal=false;
+        netSend(netSerialize());
+      }
+      return;
+    }
+    if(!netConn)return;
     const myPlayer=netRole==='host'?1:2;
     // C'est à l'autre de jouer (ou fin de manche) → on envoie l'état
     if(cur!==myPlayer||['done','cancelled','match'].includes(state)){
@@ -4891,14 +5520,35 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   }
 
   // Réception d'un état de l'adversaire
-  function netOnData(raw){
-    // Tout message reçu = preuve que l'adversaire est encore là
+  function netOnData(raw,fromConn){
+    // Tout message reçu = preuve que l'expéditeur est encore là
     netLastSeen=Date.now();
+    if(fromConn)fromConn._lastSeen=Date.now();
     try{
       const msg=JSON.parse(raw);
+      // Invité 2v2 : configuration reçue de l'hôte à la connexion
+      if(msg.type==='welcome'){
+        netIs2v2=!!msg.is2v2;
+        if(msg.seat)mySeat=msg.seat;
+        if(msg.seats)seatPseudos=msg.seats;
+        if(netIs2v2)setMsg('👥 Doublette — siège '+mySeat+' ('+(teamOfSeat(mySeat)===1?'Bleus 🔵':'Rouges 🔴')+'). En attente du départ…');
+        return;
+      }
+      if(msg.type==='lobby'){
+        if(msg.seats)seatPseudos=msg.seats;
+        if(netIs2v2&&!['flying'].includes(state)&&balls&&balls.length===0){
+          setMsg('👥 Doublette '+(msg.count||1)+'/4 — siège '+mySeat+' ('+(teamOfSeat(mySeat)===1?'Bleus 🔵':'Rouges 🔴')+')');
+        }
+        return;
+      }
+      if(msg.type==='full'){
+        document.getElementById('net-join-status').textContent='Partie complète (4/4).';
+        return;
+      }
       if(msg.type==='ping'){
-        // Répondre par un pong pour que l'autre côté sache aussi qu'on est là
-        if(netConn&&netConn.open){try{netConn.send(JSON.stringify({type:'pong'}));}catch(e){}}
+        // Répondre par un pong à L'EXPÉDITEUR pour signaler qu'on est là
+        const target=fromConn||netConn;
+        if(target&&target.open){try{target.send(JSON.stringify({type:'pong'}));}catch(e){}}
         return;
       }
       if(msg.type==='pong'){return;} // juste un signe de vie, déjà enregistré
@@ -4907,8 +5557,16 @@ Corentin: On se retrouvera au prochain tournoi !"`;
         return;
       }
       if(msg.type==='emote'){
-        const opp=netRole==='host'?2:1;
-        emoteFx.push({p:opp,t:EMOTES[msg.i]||'👋',ts:performance.now()});
+        if(netIs2v2){
+          const st=msg.seat||0;
+          const who=seatPseudos[st]?seatPseudos[st]+' · ':'';
+          emoteFx.push({p:teamOfSeat(st)||2,t:who+(EMOTES[msg.i]||'👋'),ts:performance.now()});
+          // L'hôte relaie l'emote aux autres invités
+          if(netRole==='host'&&fromConn)netBroadcast(raw,fromConn);
+        }else{
+          const opp=netRole==='host'?2:1;
+          emoteFx.push({p:opp,t:EMOTES[msg.i]||'👋',ts:performance.now()});
+        }
         return;
       }
       if(msg.type==='rematch'){
@@ -4924,6 +5582,26 @@ Corentin: On se retrouvera au prochain tournoi !"`;
         return;
       }
       if(msg.type==='teamname'){
+        if(netIs2v2&&netRole==='host'&&fromConn&&fromConn.seat){
+          // Hôte doublette : on identifie l'expéditeur par son SIÈGE
+          const seat=fromConn.seat;
+          if(msg.pseudo){
+            seatPseudos[seat]=msg.pseudo;
+            const en=netConns.find(c=>c.conn===fromConn);
+            if(en)en.pseudo=msg.pseudo;
+          }
+          if(msg.name)fromConn.teamName=msg.name; // mémorisé pour suivre les échanges de sièges
+          if(seat===2&&msg.name){ // le siège 2 nomme l'équipe rouge
+            teamNames[2]=msg.name;
+            const el=document.getElementById('p2name');
+            if(el)el.textContent=msg.name;
+            netSend(JSON.stringify({type:'teamname',player:2,name:msg.name}));
+          }
+          netBroadcast(netLobbyMsg(),null);
+          netRenderLobby();
+          updateMsg();
+          return;
+        }
         // L'adversaire annonce le nom de son équipe (et son pseudo)
         if(msg.player===1||msg.player===2){
           teamNames[msg.player]=msg.name;
@@ -4936,6 +5614,8 @@ Corentin: On se retrouvera au prochain tournoi !"`;
       }
       if(msg.type==='state'||msg.type==='newmanche'){
         netApplyState(msg);
+        // Hub doublette : l'hôte relaie l'état aux autres invités
+        if(netIs2v2&&netRole==='host'&&fromConn)netBroadcast(raw,fromConn);
       }
     }catch(e){console.warn('netOnData parse error',e);}
   }
@@ -4943,7 +5623,20 @@ Corentin: On se retrouvera au prochain tournoi !"`;
   // Patch de nextTurn pour injecter la sync réseau
   const _origNextTurn=window._nextTurn; // patch via surcharge locale
 
-  function loop(){update();draw();syncEndArb();raf=requestAnimationFrame(loop);}
+  let tossWaitFrames=0; // frames consécutives sans overlay avant de lancer le tirage
+  function loop(){
+    // Tirage au sort en attente : il démarre après 12 frames consécutives sans
+    // dialogue / annonce de match / écran de règles (les overlays s'ouvrent
+    // parfois une ou deux frames APRÈS newManche : sans ce délai, le tirage
+    // partait caché derrière la boîte de dialogue). Jamais en challenge.
+    if(matchTossPending&&!tossFx&&gameMode!=='challenge'&&state==='aim'){
+      if(overlayBlocking())tossWaitFrames=0;
+      else if(++tossWaitFrames>=12)startTossFx(cur);
+    }else{
+      tossWaitFrames=0;
+    }
+    update();recSnapshot();draw();syncEndArb();raf=requestAnimationFrame(loop);
+  }
   scoreTotal={1:0,2:0};
   mouse={x:SW/2,y:SH*0.55};state='aim';balls=[];boules={1:6,2:6};cur=1;
   jack={x:(1*SCALE)+Math.random()*(WORLD_W-2*SCALE),y:(7.5*SCALE)+Math.random()*((12-7.5)*SCALE),z:0,vx:0,vy:0,vz:0,mass:1.96,isJack:true,phase:'rolling',active:true};
